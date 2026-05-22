@@ -7,7 +7,7 @@
 - чтение входящих событий через `Router`
 - обработка внутренних очередей core
 - запуск Codex
-- запись исходящих сообщений в локальную очередь выдачи
+- отправка исходящих сообщений через `Router`
 
 ## Out Of Scope
 
@@ -19,3 +19,4 @@
 
 - `php smoke/router-ingress.php`
 - `php smoke/router-core-events.php`
+- `php smoke/router-outbound.php`

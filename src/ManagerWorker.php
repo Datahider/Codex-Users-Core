@@ -167,10 +167,6 @@ final class ManagerWorker
         }
         $workingDir = $this->resolveWorkingDir(null);
         $prompt = $this->buildUserPrompt($runtimeSessionId, $text, $codexSessionId);
-        if ($outboundSessionId !== 'none') {
-            $this->delivery->sendChatAction($outboundSessionId, 'typing');
-        }
-
         $result = $this->codex->run($prompt, $codexSessionId, $workingDir, function (string $partialText, string $latestChunk = '', bool $isProcessRunning = true) use ($outboundSessionId): void {
             if ($outboundSessionId !== 'none' && $latestChunk !== '' && $isProcessRunning) {
                 $this->sendChunkedMessages(
@@ -182,9 +178,6 @@ final class ManagerWorker
                 );
             }
 
-            if ($outboundSessionId !== 'none') {
-                $this->delivery->sendChatAction($outboundSessionId, 'typing');
-            }
         }, $runtimeSessionId);
 
         $finalCodexSessionId = trim((string) ($result['session_id'] ?? '')) ?: $codexSessionId;
@@ -231,8 +224,6 @@ final class ManagerWorker
             $this->stateStore->write($state);
         }
 
-        $this->delivery->sendChatAction($runtimeSessionId, 'typing');
-
         $result = $this->codex->run(
             $this->buildScheduledPrompt($text, $event),
             $codexSessionId,
@@ -241,8 +232,6 @@ final class ManagerWorker
                 if ($latestChunk !== '' && $isProcessRunning) {
                     $this->sendChunkedMessages($runtimeSessionId, $latestChunk, null, null, true);
                 }
-
-                $this->delivery->sendChatAction($runtimeSessionId, 'typing');
             },
             $runtimeSessionId
         );
@@ -363,8 +352,6 @@ final class ManagerWorker
         $prompt = $this->buildBackgroundResultPrompt($event);
         $commentaryReplyTo = null;
 
-        $this->delivery->sendChatAction($runtimeSessionId, 'typing');
-
         $result = $this->codex->run(
             $prompt,
             $codexSessionId !== '' ? $codexSessionId : null,
@@ -381,7 +368,6 @@ final class ManagerWorker
                     $commentaryReplyTo = null;
                 }
 
-                $this->delivery->sendChatAction($runtimeSessionId, 'typing');
             },
             $runtimeSessionId
         );

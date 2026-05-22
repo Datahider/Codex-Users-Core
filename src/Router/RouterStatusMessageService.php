@@ -2,43 +2,40 @@
 
 declare(strict_types=1);
 
-namespace CodexRuntime;
+namespace CodexRuntime\Router;
 
+use CodexRuntime\Config;
+use CodexRuntime\Contracts\DeliveryClientInterface;
 use CodexRuntime\Contracts\StatusMessageServiceInterface;
-use CodexRuntime\OutboundQueue\MessageRepository;
 
-final class QueueStatusMessageService implements StatusMessageServiceInterface
+final class RouterStatusMessageService implements StatusMessageServiceInterface
 {
     public function __construct(
         private Config $config,
-        private MessageRepository $messages
+        private DeliveryClientInterface $delivery
     ) {
     }
 
     public function updateWorkerIdle(?string $runtimeSessionId = null): void
     {
-        $this->enqueueStatus('idle', null, $this->idleText(), $runtimeSessionId);
+        $this->sendStatus($runtimeSessionId, $this->idleText());
     }
 
     public function updateWorkerBusy(string $taskId, ?string $runtimeSessionId = null): void
     {
-        $taskId = trim($taskId);
-        $this->enqueueStatus('busy', $taskId !== '' ? $taskId : null, $this->busyText($taskId), $runtimeSessionId);
+        $this->sendStatus($runtimeSessionId, $this->busyText($taskId));
     }
 
     public function updateStatus(string $text): void
     {
-        $this->enqueueStatus('custom', null, $text);
     }
 
     public function forceUpdateStatus(string $text): void
     {
-        $this->enqueueStatus('custom', null, $text);
     }
 
     public function notifyAll(string $text): void
     {
-        $this->enqueueStatus('custom', null, $text);
     }
 
     public function idleText(): string
@@ -63,25 +60,14 @@ final class QueueStatusMessageService implements StatusMessageServiceInterface
         return (string) $this->config->get('manager_queue', 'ready_message_text', 'Ready.');
     }
 
-    private function enqueueStatus(string $state, ?string $taskId, string $text, ?string $runtimeSessionId = null): void
+    private function sendStatus(?string $runtimeSessionId, string $text): void
     {
-        $text = trim($text);
-        if ($text === '') {
-            return;
-        }
-
         $runtimeSessionId = trim((string) ($runtimeSessionId ?? ''));
-        if ($runtimeSessionId === '') {
+        $text = trim($text);
+        if ($runtimeSessionId === '' || $text === '') {
             return;
         }
 
-        $this->messages->enqueue([
-            'type' => 'status',
-            'kind' => 'status',
-            'session_id' => $runtimeSessionId,
-            'state' => $state,
-            'job_id' => $taskId,
-            'text' => $text,
-        ]);
+        $this->delivery->sendMessage($runtimeSessionId, $text, null, null, true);
     }
 }

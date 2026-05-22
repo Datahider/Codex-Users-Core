@@ -103,11 +103,6 @@ return [
         'queue_dir' => __DIR__ . '/../var/scheduled-queue',
         'lock_file' => __DIR__ . '/../var/run/scheduler-worker.lock',
     ],
-    'outbound_queue' => [
-        'queue_new' => __DIR__ . '/../var/outbound-queue/new',
-        'queue_done' => __DIR__ . '/../var/outbound-queue/done',
-        'queue_failed' => __DIR__ . '/../var/outbound-queue/failed',
-    ],
     'orchestrator' => [
         'poll_interval_ms' => 10000,
         'state_file' => __DIR__ . '/../var/state/orchestrator-state.json',
