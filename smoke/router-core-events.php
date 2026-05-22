@@ -19,7 +19,7 @@ try {
 
             return [
                 'status_code' => 200,
-                'body' => '{"events":[{"event_id":501,"transport_instance_id":"telegram_main","runtime_session_id":"telegram_main:d42","kind":"message","text":"router ping","attachments":[],"meta":{"source":"telegram"}}]}',
+                'body' => '{"events":[{"event_id":501,"transport_instance_id":"transport-alpha","runtime_session_id":"runtime-42","kind":"message","text":"router ping","attachments":[],"meta":{"source":"smoke"}}]}',
             ];
         }
     };
@@ -34,10 +34,10 @@ try {
     assertSame('router:501', $event['id'] ?? null, 'event id');
     assertSame(501, $event['router_event_id'] ?? null, 'router event id');
     assertSame('user_message', $event['type'] ?? null, 'mapped type');
-    assertSame('telegram_main:d42', $event['session_id'] ?? null, 'runtime session id');
+    assertSame('runtime-42', $event['session_id'] ?? null, 'runtime session id');
     assertSame('router ping', $event['text'] ?? null, 'text');
-    assertSame('telegram_main', $event['meta']['transport_instance_id'] ?? null, 'transport instance');
-    assertSame('telegram', $event['meta']['router_meta']['source'] ?? null, 'router meta');
+    assertSame('transport-alpha', $event['meta']['transport_instance_id'] ?? null, 'transport instance');
+    assertSame('smoke', $event['meta']['router_meta']['source'] ?? null, 'router meta');
 
     fwrite(STDOUT, "Router core events smoke: OK\n");
     exit(0);

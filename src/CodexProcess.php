@@ -108,7 +108,7 @@ final class CodexProcess
             $heartbeatIntervalMs = (int) $this->config->get(
                 'transport',
                 'progress_keepalive_ms',
-                $this->config->get('telegram', 'typing_keepalive_ms', 4000)
+                4000
             );
             $nextHeartbeatAt = microtime(true) + max(1, $heartbeatIntervalMs) / 1000;
 

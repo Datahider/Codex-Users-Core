@@ -36,8 +36,8 @@ try {
     $result = $gateway->submitMessage(new TransportInboundMessage(
         channelId: 42,
         text: 'ping from smoke',
-        sessionId: 'telegram_main:d42',
-        meta: ['transport' => 'telegram']
+        sessionId: 'runtime-42',
+        meta: ['source' => 'smoke']
     ));
 
     assertSame(true, $result['accepted'], 'accepted result');
@@ -52,11 +52,11 @@ try {
         throw new RuntimeException('Router request payload is not valid JSON');
     }
 
-    assertSame('telegram_main:d42', $payload['runtime_session_id'] ?? null, 'runtime session id');
+    assertSame('runtime-42', $payload['runtime_session_id'] ?? null, 'runtime session id');
     assertSame('message', $payload['kind'] ?? null, 'kind');
     assertSame('ping from smoke', $payload['text'] ?? null, 'text');
     assertSame([], $payload['attachments'] ?? null, 'attachments');
-    assertSame(['transport' => 'telegram'], $payload['meta'] ?? null, 'meta');
+    assertSame(['source' => 'smoke'], $payload['meta'] ?? null, 'meta');
 
     fwrite(STDOUT, "Router transport ingress smoke: OK\n");
     exit(0);
