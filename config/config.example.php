@@ -25,15 +25,15 @@ return [
         'command_watcher_shutdown_flag_file' => __DIR__ . '/../var/run/command-watcher.shutdown.flag',
         'control_watcher_pid_file' => __DIR__ . '/../var/run/control-watcher.pid',
         'control_watcher_shutdown_flag_file' => __DIR__ . '/../var/run/control-watcher.shutdown.flag',
-        'manager_worker_pid_file' => __DIR__ . '/../var/run/max-manager-worker.pid',
+        'manager_worker_pid_file' => __DIR__ . '/../var/run/manager-worker.pid',
         'manager_worker_shutdown_flag_file' => __DIR__ . '/../var/run/manager-worker.shutdown.flag',
-        'orchestrator_pid_file' => __DIR__ . '/../var/run/max-orchestrator.pid',
+        'orchestrator_pid_file' => __DIR__ . '/../var/run/orchestrator.pid',
         'scheduler_worker_pid_file' => __DIR__ . '/../var/run/scheduler-worker.pid',
         'scheduler_worker_shutdown_flag_file' => __DIR__ . '/../var/run/scheduler-worker.shutdown.flag',
         'idle_watchdog_pid_file' => __DIR__ . '/../var/run/idle-watchdog.pid',
         'idle_watchdog_shutdown_flag_file' => __DIR__ . '/../var/run/idle-watchdog.shutdown.flag',
     ],
-    'transport' => [
+    'delivery' => [
         'allowed_channel_ids' => [],
         'outbound_poll_interval_ms' => 500,
         'progress_keepalive_ms' => 4000,
@@ -115,7 +115,7 @@ return [
         'admin_channel_id' => null,
         'default_manager_priority' => 40,
         'default_manager_prompt' => 'A background job finished. Assess the result, decide whether a follow-up step is needed, and if needed enqueue it.',
-        'transport_prefix' => '🧩'
+        'message_prefix' => '🧩'
     ],
     'idle_watchdog' => [
         'enabled' => false,
@@ -130,7 +130,7 @@ return [
         'enqueue_priority' => 20,
         'state_file' => __DIR__ . '/../var/state/idle-watchdog-state.json',
         'lock_file' => __DIR__ . '/../var/run/idle-watchdog.lock',
-        'transport_prefix' => '⚙️'
+        'message_prefix' => '⚙️'
     ],
     'storage' => [
         'root' => __DIR__ . '/../var',

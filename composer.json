@@ -1,6 +1,6 @@
 {
     "name": "ioannidis/codex-runtime",
-    "description": "Transport-agnostic runtime core for Codex-based operators",
+    "description": "Router-driven runtime core for Codex-based operators",
     "type": "project",
     "require": {
         "losthost/background-process": "^1.1"

@@ -6,7 +6,7 @@ namespace CodexRuntime;
 
 use RuntimeException;
 
-final class TransportInboundMessage
+final class InboundMessage
 {
     /**
      * @param array<string, mixed> $meta
@@ -18,7 +18,7 @@ final class TransportInboundMessage
         public readonly ?string $channelType = null,
         public readonly ?int $replyToMessageId = null,
         public readonly ?int $threadId = null,
-        public readonly int|string|null $transportMessageId = null,
+        public readonly int|string|null $sourceMessageId = null,
         public readonly array $meta = []
     ) {
         if (trim($this->text) === '') {

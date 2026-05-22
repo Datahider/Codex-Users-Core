@@ -1,19 +1,12 @@
-# PROJECT
+# Project
 
-## Name
+## Goal
 
-codex-runtime
+Сохранить `Core` как отдельное runtime-ядро с единственной внешней интеграцией через `Router`.
 
-## Status
+## Rules
 
-active
-
-## Purpose
-
-Transport-agnostic runtime core for Codex-based operator bots.
-
-## Current Focus
-
-- keep queues/workers/orchestration outside Telegram-specific code;
-- prepare clean contracts for a MAX transport;
-- keep the old Telegram bot as one transport implementation until MAX is proven.
+- source-specific логика не живёт в `Core`
+- входящие пользовательские события приходят через `Router`
+- внутренние события живут в локальных очередях `Core`
+- документы должны соответствовать фактическому коду

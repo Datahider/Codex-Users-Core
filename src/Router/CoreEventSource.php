@@ -40,7 +40,7 @@ final class CoreEventSource
             'text' => trim((string) ($event['text'] ?? '')),
             'meta' => [
                 'source' => 'router',
-                'transport_instance_id' => (string) ($event['transport_instance_id'] ?? ''),
+                'source_instance_id' => (string) ($event['transport_instance_id'] ?? ''),
                 'router_kind' => (string) ($event['kind'] ?? ''),
                 'attachments' => is_array($event['attachments'] ?? null) ? $event['attachments'] : [],
                 'router_meta' => is_array($event['meta'] ?? null) ? $event['meta'] : [],

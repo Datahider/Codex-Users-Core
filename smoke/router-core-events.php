@@ -19,7 +19,7 @@ try {
 
             return [
                 'status_code' => 200,
-                'body' => '{"events":[{"event_id":501,"transport_instance_id":"transport-alpha","runtime_session_id":"runtime-42","kind":"message","text":"router ping","attachments":[],"meta":{"source":"smoke"}}]}',
+                'body' => '{"events":[{"event_id":501,"transport_instance_id":"source-alpha","runtime_session_id":"runtime-42","kind":"message","text":"router ping","attachments":[],"meta":{"source":"smoke"}}]}',
             ];
         }
     };
@@ -36,7 +36,7 @@ try {
     assertSame('user_message', $event['type'] ?? null, 'mapped type');
     assertSame('runtime-42', $event['session_id'] ?? null, 'runtime session id');
     assertSame('router ping', $event['text'] ?? null, 'text');
-    assertSame('transport-alpha', $event['meta']['transport_instance_id'] ?? null, 'transport instance');
+    assertSame('source-alpha', $event['meta']['source_instance_id'] ?? null, 'source instance');
     assertSame('smoke', $event['meta']['router_meta']['source'] ?? null, 'router meta');
 
     fwrite(STDOUT, "Router core events smoke: OK\n");

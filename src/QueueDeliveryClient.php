@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace CodexRuntime;
 
-use CodexRuntime\Contracts\TransportClientInterface;
+use CodexRuntime\Contracts\DeliveryClientInterface;
 use CodexRuntime\OutboundQueue\MessageRepository;
 use RuntimeException;
 
-final class QueueTransportClient implements TransportClientInterface
+final class QueueDeliveryClient implements DeliveryClientInterface
 {
     public function __construct(private MessageRepository $messages)
     {

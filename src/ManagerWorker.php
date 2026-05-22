@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace CodexRuntime;
 
+use CodexRuntime\Contracts\DeliveryClientInterface;
 use CodexRuntime\Contracts\StatusMessageServiceInterface;
-use CodexRuntime\Contracts\TransportClientInterface;
 use CodexRuntime\ManagerQueue\EventRepository;
 use CodexRuntime\Router\CoreEventSource;
 use RuntimeException;
@@ -22,7 +22,7 @@ final class ManagerWorker
         private JsonFileStore $stateStore,
         private StatusMessageServiceInterface $statusMessages,
         private WorkerShutdownFlag $shutdown,
-        private TransportClientInterface $transport,
+        private DeliveryClientInterface $delivery,
         private CodexProcess $codex,
         private ?CoreEventSource $routerEvents = null
     ) {
@@ -168,7 +168,7 @@ final class ManagerWorker
         $workingDir = $this->resolveWorkingDir(null);
         $prompt = $this->buildUserPrompt($runtimeSessionId, $text, $codexSessionId);
         if ($outboundSessionId !== 'none') {
-            $this->transport->sendChatAction($outboundSessionId, 'typing');
+            $this->delivery->sendChatAction($outboundSessionId, 'typing');
         }
 
         $result = $this->codex->run($prompt, $codexSessionId, $workingDir, function (string $partialText, string $latestChunk = '', bool $isProcessRunning = true) use ($outboundSessionId): void {
@@ -183,7 +183,7 @@ final class ManagerWorker
             }
 
             if ($outboundSessionId !== 'none') {
-                $this->transport->sendChatAction($outboundSessionId, 'typing');
+                $this->delivery->sendChatAction($outboundSessionId, 'typing');
             }
         }, $runtimeSessionId);
 
@@ -231,7 +231,7 @@ final class ManagerWorker
             $this->stateStore->write($state);
         }
 
-        $this->transport->sendChatAction($runtimeSessionId, 'typing');
+        $this->delivery->sendChatAction($runtimeSessionId, 'typing');
 
         $result = $this->codex->run(
             $this->buildScheduledPrompt($text, $event),
@@ -242,7 +242,7 @@ final class ManagerWorker
                     $this->sendChunkedMessages($runtimeSessionId, $latestChunk, null, null, true);
                 }
 
-                $this->transport->sendChatAction($runtimeSessionId, 'typing');
+                $this->delivery->sendChatAction($runtimeSessionId, 'typing');
             },
             $runtimeSessionId
         );
@@ -300,7 +300,7 @@ final class ManagerWorker
                 }
 
                 $lastStreamedChunk = trim($latestChunk);
-                $renderedChunk = $this->renderInternalDecisionTransportMessage($streamingSource, $latestChunk);
+                $renderedChunk = $this->renderInternalDecisionOutputMessage($streamingSource, $latestChunk);
                 foreach ($notificationSessionIds as $sessionId) {
                     $this->sendChunkedMessages($sessionId, $renderedChunk, null, null, true);
                 }
@@ -316,9 +316,9 @@ final class ManagerWorker
         $decisionText = trim((string) ($result['text'] ?? ''));
         $notification = $this->parseInternalDecisionNotification($decisionText);
         if ($streamingSource === 'idle_watchdog') {
-            $transportText = $this->resolveIdleWatchdogTransportText($decisionText, $notification);
-            if ($transportText !== '' && trim($transportText) !== $lastStreamedChunk) {
-                $renderedText = $this->renderInternalDecisionTransportMessage($streamingSource, $transportText);
+            $outputText = $this->resolveIdleWatchdogOutputText($decisionText, $notification);
+            if ($outputText !== '' && trim($outputText) !== $lastStreamedChunk) {
+                $renderedText = $this->renderInternalDecisionOutputMessage($streamingSource, $outputText);
                 foreach ($notificationSessionIds as $sessionId) {
                     $this->sendChunkedMessages($sessionId, $renderedText, null, null, true);
                 }
@@ -363,7 +363,7 @@ final class ManagerWorker
         $prompt = $this->buildBackgroundResultPrompt($event);
         $commentaryReplyTo = null;
 
-        $this->transport->sendChatAction($runtimeSessionId, 'typing');
+        $this->delivery->sendChatAction($runtimeSessionId, 'typing');
 
         $result = $this->codex->run(
             $prompt,
@@ -381,7 +381,7 @@ final class ManagerWorker
                     $commentaryReplyTo = null;
                 }
 
-                $this->transport->sendChatAction($runtimeSessionId, 'typing');
+                $this->delivery->sendChatAction($runtimeSessionId, 'typing');
             },
             $runtimeSessionId
         );
@@ -462,7 +462,7 @@ TEXT;
     private function processIdleWatchdogDemoEvent(array $event): array
     {
         $demoText = trim((string) ($event['meta']['idle_watchdog_demo_text'] ?? ''));
-        $renderedText = $this->renderInternalDecisionTransportMessage('idle_watchdog', $demoText);
+        $renderedText = $this->renderInternalDecisionOutputMessage('idle_watchdog', $demoText);
         foreach ($this->notificationSessionIds() as $sessionId) {
             $this->sendChunkedMessages($sessionId, $renderedText, null, null, true);
         }
@@ -482,7 +482,7 @@ TEXT;
     /**
      * @param array{notify_user: bool, message: string, await_user_response: bool} $notification
      */
-    private function resolveIdleWatchdogTransportText(string $decisionText, array $notification): string
+    private function resolveIdleWatchdogOutputText(string $decisionText, array $notification): string
     {
         $decisionText = trim($decisionText);
         if ($decisionText === '') {
@@ -499,7 +499,7 @@ TEXT;
         return $message !== '' ? $message : $decisionText;
     }
 
-    private function renderInternalDecisionTransportMessage(string $source, string $text): string
+    private function renderInternalDecisionOutputMessage(string $source, string $text): string
     {
         $text = trim($text);
         if ($text === '') {
@@ -507,7 +507,7 @@ TEXT;
         }
 
         $prefix = match ($source) {
-            'idle_watchdog' => trim((string) $this->config->get('idle_watchdog', 'transport_prefix', '⚙️')),
+            'idle_watchdog' => trim((string) $this->config->get('idle_watchdog', 'message_prefix', '⚙️')),
             default => '',
         };
         $payload = $prefix !== '' ? ($prefix . ' ' . $text) : $text;
@@ -522,7 +522,7 @@ TEXT;
         }
 
         $bootstrap = trim((string) $this->config->get('codex', 'bootstrap_prompt', ''));
-        $labelPrefix = (string) $this->config->get('codex', 'session_label_prefix', 'transport-channel-');
+        $labelPrefix = (string) $this->config->get('codex', 'session_label_prefix', 'runtime-channel-');
         $label = $labelPrefix . $runtimeSessionId;
 
         if ($bootstrap === '') {
@@ -643,12 +643,12 @@ TEXT;
     {
         $chunks = $this->chunkText(
             $text,
-            (int) $this->config->get('transport', 'message_chunk_size', 3800)
+            (int) $this->config->get('delivery', 'message_chunk_size', 3800)
         );
         $lastMessageId = null;
         foreach ($chunks as $index => $chunk) {
             $replyTo = $index === 0 ? $replyToMessageId : null;
-            $message = $this->transport->sendMessage($sessionId, $chunk, $replyTo, $parseMode, $disableNotification);
+            $message = $this->delivery->sendMessage($sessionId, $chunk, $replyTo, $parseMode, $disableNotification);
             $lastMessageId = isset($message['message_id']) ? (int) $message['message_id'] : $lastMessageId;
         }
 

@@ -18,14 +18,14 @@ final class ControlIngress
     public function enqueueStop(
         int|string $channelId,
         ?string $sessionId = null,
-        int|string|null $transportMessageId = null,
+        int|string|null $sourceMessageId = null,
         array $meta = []
     ): string {
         return $this->commands->enqueue([
             'type' => 'stop_turn',
             'channel_id' => $channelId,
             'session_id' => $sessionId,
-            'transport_message_id' => $transportMessageId,
+            'source_message_id' => $sourceMessageId,
             'meta' => $meta,
             'priority' => 100,
         ]);
@@ -34,25 +34,25 @@ final class ControlIngress
     /**
      * @param array<string, mixed> $meta
      */
-    public function enqueueTransportCommand(
+    public function enqueueIngressCommand(
         int|string $channelId,
         string $text,
         ?string $sessionId = null,
         ?string $channelType = null,
         ?int $replyToMessageId = null,
         ?int $threadId = null,
-        int|string|null $transportMessageId = null,
+        int|string|null $sourceMessageId = null,
         array $meta = []
     ): string {
         return $this->commands->enqueue([
-            'type' => 'transport_command',
+            'type' => 'ingress_command',
             'channel_id' => $channelId,
             'text' => trim($text),
             'session_id' => $sessionId,
             'channel_type' => $channelType,
             'reply_to_message_id' => $replyToMessageId,
             'thread_id' => $threadId,
-            'transport_message_id' => $transportMessageId,
+            'source_message_id' => $sourceMessageId,
             'meta' => $meta,
             'priority' => 90,
         ]);

@@ -5,8 +5,8 @@ declare(strict_types=1);
 
 use CodexRuntime\Router\ApiClient;
 use CodexRuntime\Router\HttpClientInterface;
-use CodexRuntime\Router\TransportIngressGateway;
-use CodexRuntime\TransportInboundMessage;
+use CodexRuntime\Router\RouterIngressGateway;
+use CodexRuntime\InboundMessage;
 
 require_once __DIR__ . '/../src/bootstrap.php';
 
@@ -32,8 +32,8 @@ try {
         }
     };
 
-    $gateway = new TransportIngressGateway(new ApiClient('https://router.example', 'test-token', $http));
-    $result = $gateway->submitMessage(new TransportInboundMessage(
+    $gateway = new RouterIngressGateway(new ApiClient('https://router.example', 'test-token', $http));
+    $result = $gateway->submitMessage(new InboundMessage(
         channelId: 42,
         text: 'ping from smoke',
         sessionId: 'runtime-42',
@@ -58,10 +58,10 @@ try {
     assertSame([], $payload['attachments'] ?? null, 'attachments');
     assertSame(['source' => 'smoke'], $payload['meta'] ?? null, 'meta');
 
-    fwrite(STDOUT, "Router transport ingress smoke: OK\n");
+    fwrite(STDOUT, "Router ingress smoke: OK\n");
     exit(0);
 } catch (Throwable $e) {
-    fwrite(STDERR, "Router transport ingress smoke failed: {$e->getMessage()}\n");
+    fwrite(STDERR, "Router ingress smoke failed: {$e->getMessage()}\n");
     exit(1);
 }
 

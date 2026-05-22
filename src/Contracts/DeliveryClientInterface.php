@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace CodexRuntime\Contracts;
 
-interface TransportClientInterface
+interface DeliveryClientInterface
 {
     /**
      * @return array<string, mixed>

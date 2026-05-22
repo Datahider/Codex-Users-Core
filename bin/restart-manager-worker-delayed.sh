@@ -3,7 +3,7 @@ set -euo pipefail
 
 RUNTIME_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DELAY_SECONDS="${DELAY_SECONDS:-30}"
-PID_FILE="$RUNTIME_ROOT/var/run/max-manager-worker.pid"
+PID_FILE="$RUNTIME_ROOT/var/run/manager-worker.pid"
 LOG_FILE="$RUNTIME_ROOT/var/log/restart-manager-worker-delayed.log"
 
 mkdir -p "$(dirname "$LOG_FILE")"

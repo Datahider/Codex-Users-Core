@@ -106,7 +106,7 @@ final class CodexProcess
             $pendingAgentMessage = null;
             $finalAgentMessage = null;
             $heartbeatIntervalMs = (int) $this->config->get(
-                'transport',
+                'delivery',
                 'progress_keepalive_ms',
                 4000
             );

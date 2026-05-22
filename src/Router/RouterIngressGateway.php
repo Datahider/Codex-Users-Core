@@ -4,16 +4,16 @@ declare(strict_types=1);
 
 namespace CodexRuntime\Router;
 
-use CodexRuntime\Contracts\TransportIngressGatewayInterface;
-use CodexRuntime\TransportInboundMessage;
+use CodexRuntime\Contracts\IngressGatewayInterface;
+use CodexRuntime\InboundMessage;
 
-final class TransportIngressGateway implements TransportIngressGatewayInterface
+final class RouterIngressGateway implements IngressGatewayInterface
 {
     public function __construct(private ApiClient $api)
     {
     }
 
-    public function submitMessage(TransportInboundMessage $message): array
+    public function submitMessage(InboundMessage $message): array
     {
         $response = $this->api->postJson('/api/v1/transport/ingress', [
             'runtime_session_id' => (string) ($message->sessionId ?? ''),
