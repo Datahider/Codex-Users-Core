@@ -7,8 +7,6 @@ return [
         'debug_dir' => __DIR__ . '/../var/codex-debug',
         'initial_session_id' => '',
         'extra_args' => [
-            '-s',
-            'read-only',
             '--skip-git-repo-check',
             '--json',
         ],
