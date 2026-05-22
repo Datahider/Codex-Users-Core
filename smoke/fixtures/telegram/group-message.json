@@ -1,0 +1,22 @@
+{
+  "update_id": 10002,
+  "message": {
+    "message_id": 31,
+    "from": {
+      "id": 7002,
+      "is_bot": false,
+      "first_name": "Bob",
+      "username": "bob"
+    },
+    "chat": {
+      "id": -1009876543200,
+      "title": "Codex Runtime Group",
+      "type": "supergroup"
+    },
+    "date": 1776783550,
+    "text": "group ping",
+    "reply_to_message": {
+      "message_id": 41
+    }
+  }
+}
