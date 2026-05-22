@@ -7,13 +7,16 @@ namespace CodexRuntime;
 use CodexRuntime\Contracts\DeliveryClientInterface;
 use CodexRuntime\Contracts\StatusMessageServiceInterface;
 use CodexRuntime\ManagerQueue\EventRepository;
+use CodexRuntime\Router\RouterAuthException;
 use CodexRuntime\Router\CoreEventSource;
+use CodexRuntime\Router\RouterUnavailableException;
 use RuntimeException;
 use Throwable;
 
 final class ManagerWorker
 {
     private $lockHandle = null;
+    private int $routerRetryNotBefore = 0;
 
     public function __construct(
         private Config $config,
@@ -720,13 +723,29 @@ TEXT;
             return null;
         }
 
-        $state = $this->readManagerState();
+        if (time() < $this->routerRetryNotBefore) {
+            return null;
+        }
 
-        return $this->routerEvents->pollNextEvent(
-            (int) ($state['router_after_id'] ?? 0),
-            (int) $this->config->get('router', 'core_events_wait_seconds', 0),
-            (int) $this->config->get('router', 'core_events_limit', 1)
-        );
+        $state = $this->readManagerState();
+        try {
+            return $this->routerEvents->pollNextEvent(
+                (int) ($state['router_after_id'] ?? 0),
+                (int) $this->config->get('router', 'core_events_wait_seconds', 0),
+                (int) $this->config->get('router', 'core_events_limit', 1)
+            );
+        } catch (RouterAuthException $e) {
+            throw $e;
+        } catch (RouterUnavailableException $e) {
+            $delaySeconds = max(1, (int) $this->config->get('router', 'retry_unavailable_after_seconds', 15));
+            $this->routerRetryNotBefore = time() + $delaySeconds;
+            $this->logger->warning('Router unavailable; falling back to local manager queue', [
+                'error' => $e->getMessage(),
+                'retry_after_seconds' => $delaySeconds,
+            ]);
+
+            return null;
+        }
     }
 
     private function advanceRouterCursor(int $eventId): void

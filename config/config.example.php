@@ -45,6 +45,7 @@ return [
         'transport_token' => '',
         'core_events_wait_seconds' => 0,
         'core_events_limit' => 1,
+        'retry_unavailable_after_seconds' => 15,
     ],
     'exec_watcher' => [
         'poll_interval_ms' => 1000,

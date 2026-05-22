@@ -37,11 +37,17 @@ final class ApiClient
             $url .= '?' . $queryString;
         }
 
-        return $this->decodeJsonResponse(
-            $this->http->request('GET', $url, $this->headers(), null),
-            'GET',
-            $path
-        );
+        try {
+            return $this->decodeJsonResponse(
+                $this->http->request('GET', $url, $this->headers(), null),
+                'GET',
+                $path
+            );
+        } catch (RouterAuthException | RouterUnavailableException $e) {
+            throw $e;
+        } catch (RuntimeException $e) {
+            throw new RouterUnavailableException($e->getMessage(), 0, $e);
+        }
     }
 
     /**
@@ -55,11 +61,17 @@ final class ApiClient
             throw new RuntimeException("Cannot encode Router request body for {$path}");
         }
 
-        return $this->decodeJsonResponse(
-            $this->http->request('POST', $this->baseUrl . $path, $this->headers(), $body),
-            'POST',
-            $path
-        );
+        try {
+            return $this->decodeJsonResponse(
+                $this->http->request('POST', $this->baseUrl . $path, $this->headers(), $body),
+                'POST',
+                $path
+            );
+        } catch (RouterAuthException | RouterUnavailableException $e) {
+            throw $e;
+        } catch (RuntimeException $e) {
+            throw new RouterUnavailableException($e->getMessage(), 0, $e);
+        }
     }
 
     /**
@@ -72,7 +84,11 @@ final class ApiClient
         $rawBody = (string) ($response['body'] ?? '');
         $decoded = json_decode($rawBody, true);
         if (!is_array($decoded)) {
-            throw new RuntimeException("Router {$method} {$path} returned invalid JSON");
+            if ($statusCode === 401 || $statusCode === 403) {
+                throw new RouterAuthException("Router {$method} {$path} rejected credentials");
+            }
+
+            throw new RouterUnavailableException("Router {$method} {$path} returned invalid JSON");
         }
 
         if ($statusCode < 200 || $statusCode >= 300) {
@@ -81,7 +97,11 @@ final class ApiClient
                 $message = "Router {$method} {$path} failed with HTTP {$statusCode}";
             }
 
-            throw new RuntimeException($message);
+            if ($statusCode === 401 || $statusCode === 403) {
+                throw new RouterAuthException($message);
+            }
+
+            throw new RouterUnavailableException($message);
         }
 
         return $decoded;
