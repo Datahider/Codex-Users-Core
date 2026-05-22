@@ -4,10 +4,10 @@
 declare(strict_types=1);
 
 use CodexRuntime\Config;
+use CodexRuntime\Contracts\TransportIngressGatewayInterface;
 use CodexRuntime\ControlIngress;
 use CodexRuntime\ControlQueue\CommandRepository;
 use CodexRuntime\Logger;
-use CodexRuntime\ManagerQueue\EventRepository;
 use CodexRuntime\Max\MaxSessionId;
 use CodexRuntime\Max\MaxTransportClient;
 use CodexRuntime\Max\MaxTransportStateStore;
@@ -27,7 +27,7 @@ if ($fixture === false) {
 }
 
 $tmpRoot = sys_get_temp_dir() . '/codex-runtime-max-smoke-' . bin2hex(random_bytes(4));
-$queueRoot = $tmpRoot . '/manager-queue';
+$capturedPayload = null;
 $config = new Config([
     'transport' => [
         'allowed_channel_ids' => ['chat-42'],
@@ -46,13 +46,28 @@ $config = new Config([
 ]);
 
 $logger = new Logger($tmpRoot . '/runtime.log');
-$repository = new EventRepository($config);
+$gateway = new class($capturedPayload) implements TransportIngressGatewayInterface {
+    public function __construct(private mixed &$capturedPayload)
+    {
+    }
+
+    public function submitMessage(\CodexRuntime\TransportInboundMessage $message): array
+    {
+        $this->capturedPayload = $message->toManagerEventPayload();
+
+        return [
+            'accepted' => true,
+            'event_id' => 'router-101',
+            'action_text' => null,
+        ];
+    }
+};
 $ingress = new MaxWebhookIngress(
     $config,
     new MaxUpdateIngress(
         $config,
         $logger,
-        new TransportMessageIngress($repository),
+        new TransportMessageIngress($gateway),
         new ControlIngress(new CommandRepository($config)),
         new MaxUpdateNormalizer(),
         new MaxTransportClient(new BotApi('smoke-token')),
@@ -65,20 +80,12 @@ try {
     $result = $ingress->ingest($fixture);
 
     assertSame(true, $result['accepted'] ?? null, 'webhook should be accepted');
-    assertNotEmpty($result['event_id'] ?? null, 'event id should be returned');
+    assertSame('router-101', $result['event_id'] ?? null, 'event id should be returned');
     assertSame(null, $result['reason'] ?? null, 'accepted webhook should not include a reason');
 
-    $eventPath = $queueRoot . '/new/' . $result['event_id'] . '.json';
-    assertFileExists($eventPath, 'manager queue event should be created');
-
-    $eventRaw = file_get_contents($eventPath);
-    if ($eventRaw === false) {
-        throw new RuntimeException("Cannot read event payload: {$eventPath}");
-    }
-
-    $event = json_decode($eventRaw, true);
+    $event = $capturedPayload;
     if (!is_array($event)) {
-        throw new RuntimeException("Invalid JSON in event payload: {$eventPath}");
+        throw new RuntimeException('Transport ingress did not capture payload');
     }
 
     assertSame('user_message', $event['type'] ?? null, 'event type');
@@ -93,7 +100,6 @@ try {
 
     fwrite(STDOUT, "MAX webhook normalization smoke: OK\n");
     fwrite(STDOUT, "Fixture: {$fixturePath}\n");
-    fwrite(STDOUT, "Queued event: {$eventPath}\n");
     exit(0);
 } catch (Throwable $e) {
     fwrite(STDERR, "MAX webhook normalization smoke failed: {$e->getMessage()}\n");
@@ -115,13 +121,6 @@ function assertNotEmpty(mixed $value, string $label): void
 {
     if ($value === null || $value === '') {
         throw new RuntimeException("Assertion failed for {$label}: value is empty");
-    }
-}
-
-function assertFileExists(string $path, string $label): void
-{
-    if (!is_file($path)) {
-        throw new RuntimeException("Assertion failed for {$label}: missing {$path}");
     }
 }
 

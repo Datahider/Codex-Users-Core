@@ -73,7 +73,7 @@ final class MaxUpdateIngress
             ];
         }
 
-        $eventId = $this->ingress->enqueueUserMessage(new TransportInboundMessage(
+        $ingressResult = $this->ingress->enqueueUserMessage(new TransportInboundMessage(
             channelId: $message->channelId,
             text: $message->text,
             sessionId: $sessionId,
@@ -83,17 +83,30 @@ final class MaxUpdateIngress
             transportMessageId: $message->transportMessageId,
             meta: $message->meta,
         ));
-        $this->logger->info('Enqueued MAX inbound message', [
+        $actionText = trim((string) ($ingressResult['action_text'] ?? ''));
+        if ($actionText !== '') {
+            $this->transport->sendMessageToChat(
+                (int) $message->channelId,
+                $actionText,
+                null,
+                null,
+                true
+            );
+        }
+
+        $this->logger->info('Forwarded MAX inbound message to Router', [
             'channel_id' => $message->channelId,
             'session_id' => $sessionId,
-            'event_id' => $eventId,
+            'event_id' => $ingressResult['event_id'] ?? null,
+            'accepted' => !empty($ingressResult['accepted']),
+            'action_text' => $actionText !== '' ? $actionText : null,
             'transport_message_id' => $message->transportMessageId,
         ]);
 
         return [
-            'accepted' => true,
-            'event_id' => $eventId,
-            'reason' => null,
+            'accepted' => !empty($ingressResult['accepted']),
+            'event_id' => $ingressResult['event_id'] ?? null,
+            'reason' => $actionText !== '' ? 'router_action' : null,
         ];
     }
 

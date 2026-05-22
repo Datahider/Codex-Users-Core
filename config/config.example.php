@@ -43,6 +43,13 @@ return [
         'progress_keepalive_ms' => 4000,
         'message_chunk_size' => 3800,
     ],
+    'router' => [
+        'base_url' => 'https://cdx-router.example',
+        'core_token' => '',
+        'transport_token' => '',
+        'core_events_wait_seconds' => 0,
+        'core_events_limit' => 1,
+    ],
     'max' => [
         'instance_id' => 'max_main',
         'api_token' => '',

@@ -7,10 +7,12 @@ namespace CodexRuntime\Max;
 use CodexRuntime\Config;
 use CodexRuntime\ControlIngress;
 use CodexRuntime\ControlQueue\CommandRepository;
-use CodexRuntime\FileQueue\FileQueueLayout;
 use CodexRuntime\JsonFileStore;
 use CodexRuntime\Logger;
 use CodexRuntime\OutboundQueue\MessageRepository;
+use CodexRuntime\Router\ApiClient;
+use CodexRuntime\Router\CurlHttpClient;
+use CodexRuntime\Router\TransportIngressGateway;
 use CodexRuntime\TransportMessageIngress;
 use CodexRuntime\WorkerShutdownFlag;
 use MaxApi\BotApi;
@@ -100,10 +102,16 @@ final class MaxRuntime
 
     private function createUpdateIngress(): MaxUpdateIngress
     {
+        $routerApi = new ApiClient(
+            (string) $this->config->require('router', 'base_url'),
+            (string) $this->config->require('router', 'transport_token'),
+            new CurlHttpClient()
+        );
+
         return new MaxUpdateIngress(
             $this->config,
             $this->logger,
-            new TransportMessageIngress(new \CodexRuntime\ManagerQueue\EventRepository($this->config)),
+            new TransportMessageIngress(new TransportIngressGateway($routerApi)),
             new ControlIngress(new CommandRepository($this->config)),
             new MaxUpdateNormalizer(),
             $this->transport,

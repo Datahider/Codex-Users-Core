@@ -7,11 +7,12 @@ namespace CodexRuntime\Telegram;
 use CodexRuntime\Config;
 use CodexRuntime\ControlIngress;
 use CodexRuntime\ControlQueue\CommandRepository;
-use CodexRuntime\FileQueue\FileQueueLayout;
 use CodexRuntime\JsonFileStore;
 use CodexRuntime\Logger;
-use CodexRuntime\ManagerQueue\EventRepository;
 use CodexRuntime\OutboundQueue\MessageRepository;
+use CodexRuntime\Router\ApiClient;
+use CodexRuntime\Router\CurlHttpClient;
+use CodexRuntime\Router\TransportIngressGateway;
 use CodexRuntime\TransportMessageIngress;
 
 final class TelegramRuntime
@@ -66,10 +67,16 @@ final class TelegramRuntime
 
     private function createUpdateIngress(): TelegramUpdateIngress
     {
+        $routerApi = new ApiClient(
+            (string) $this->config->require('router', 'base_url'),
+            (string) $this->config->require('router', 'transport_token'),
+            new CurlHttpClient()
+        );
+
         return new TelegramUpdateIngress(
             $this->config,
             $this->logger,
-            new TransportMessageIngress(new EventRepository($this->config)),
+            new TransportMessageIngress(new TransportIngressGateway($routerApi)),
             new ControlIngress(new CommandRepository($this->config)),
             new TelegramUpdateNormalizer(),
             $this->api,

@@ -183,7 +183,7 @@ final class ControlWatcher
             return $this->processSessionCommand($command, $channelId, $sessionId, $text);
         }
 
-        $eventId = $this->ingress->enqueueUserMessage(new TransportInboundMessage(
+        $ingressResult = $this->ingress->enqueueUserMessage(new TransportInboundMessage(
             channelId: $channelId,
             text: $text,
             sessionId: $sessionId,
@@ -194,13 +194,19 @@ final class ControlWatcher
             meta: is_array($command['meta'] ?? null) ? $command['meta'] : []
         ), true);
 
+        $actionText = trim((string) ($ingressResult['action_text'] ?? ''));
+        if ($actionText !== '') {
+            $this->transport->sendMessage($sessionId, $actionText);
+        }
+
         return [
             'ok' => true,
             'stdout' => '',
             'stderr' => '',
             'command' => $command,
-            'forwarded_to_manager' => true,
-            'event_id' => $eventId,
+            'forwarded_to_router' => !empty($ingressResult['accepted']),
+            'event_id' => $ingressResult['event_id'] ?? null,
+            'action_text' => $actionText !== '' ? $actionText : null,
         ];
     }
 

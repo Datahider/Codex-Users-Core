@@ -4,24 +4,19 @@ declare(strict_types=1);
 
 namespace CodexRuntime;
 
-use CodexRuntime\ManagerQueue\EventRepository;
+use CodexRuntime\Contracts\TransportIngressGatewayInterface;
 
 final class TransportMessageIngress
 {
-    public function __construct(private EventRepository $events)
+    public function __construct(private TransportIngressGatewayInterface $gateway)
     {
     }
 
-    public function enqueueUserMessage(TransportInboundMessage $message, bool $mergePending = true): string
+    /**
+     * @return array{accepted: bool, event_id: int|string|null, action_text: ?string}
+     */
+    public function enqueueUserMessage(TransportInboundMessage $message, bool $mergePending = true): array
     {
-        $runtimeId = trim((string) ($message->sessionId ?? ''));
-        if ($mergePending && $runtimeId !== '') {
-            $mergedEventId = $this->events->mergePendingRuntimeMessage($runtimeId, $message->text);
-            if ($mergedEventId !== null) {
-                return $mergedEventId;
-            }
-        }
-
-        return $this->events->enqueue($message->toManagerEventPayload());
+        return $this->gateway->submitMessage($message);
     }
 }

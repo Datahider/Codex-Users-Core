@@ -7,6 +7,7 @@ namespace CodexRuntime;
 use CodexRuntime\Contracts\StatusMessageServiceInterface;
 use CodexRuntime\Contracts\TransportClientInterface;
 use CodexRuntime\ManagerQueue\EventRepository;
+use CodexRuntime\Router\CoreEventSource;
 use RuntimeException;
 use Throwable;
 
@@ -22,7 +23,8 @@ final class ManagerWorker
         private StatusMessageServiceInterface $statusMessages,
         private WorkerShutdownFlag $shutdown,
         private TransportClientInterface $transport,
-        private CodexProcess $codex
+        private CodexProcess $codex,
+        private ?CoreEventSource $routerEvents = null
     ) {
     }
 
@@ -44,7 +46,26 @@ final class ManagerWorker
 
             $runningPath = null;
             $event = null;
+            $routerEventId = null;
             try {
+                $event = $this->nextRouterEvent();
+                if ($event !== null) {
+                    $routerEventId = (int) ($event['router_event_id'] ?? 0);
+                    $eventId = (string) ($event['id'] ?? ('router:' . $routerEventId));
+                    $this->markActive($event);
+                    $this->logger->info('Manager worker handling Router event', [
+                        'event_id' => $eventId,
+                        'router_event_id' => $routerEventId,
+                        'type' => $event['type'] ?? 'unknown',
+                        'priority' => $event['priority'] ?? null,
+                    ]);
+
+                    $this->processEvent($event);
+                    $this->advanceRouterCursor($routerEventId);
+                    $this->clearActive();
+                    continue;
+                }
+
                 $nextPath = $this->events->nextPendingPath();
                 if ($nextPath === null) {
                     usleep($pollIntervalMs * 1000);
@@ -66,6 +87,16 @@ final class ManagerWorker
                 $this->clearActive();
             } catch (Throwable $e) {
                 $this->logger->error('Manager worker error', ['error' => $e->getMessage()]);
+                if ($routerEventId !== null && $routerEventId > 0) {
+                    try {
+                        $this->advanceRouterCursor($routerEventId);
+                    } catch (Throwable $cursorError) {
+                        $this->logger->error('Manager worker failed to advance Router cursor after error', [
+                            'router_event_id' => $routerEventId,
+                            'error' => $cursorError->getMessage(),
+                        ]);
+                    }
+                }
                 if ($runningPath !== null && is_file($runningPath)) {
                     try {
                         $failedEventId = is_array($event) ? (string) ($event['id'] ?? basename($runningPath, '.json')) : basename($runningPath, '.json');
@@ -690,7 +721,42 @@ TEXT;
             'waiting_for_user_response' => !empty($state['waiting_for_user_response']),
             'waiting_for_user_response_at' => isset($state['waiting_for_user_response_at']) ? (string) $state['waiting_for_user_response_at'] : null,
             'waiting_for_user_response_message' => isset($state['waiting_for_user_response_message']) ? (string) $state['waiting_for_user_response_message'] : null,
+            'router_after_id' => isset($state['router_after_id']) ? (int) $state['router_after_id'] : 0,
         ];
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function nextRouterEvent(): ?array
+    {
+        if ($this->routerEvents === null) {
+            return null;
+        }
+
+        $state = $this->readManagerState();
+
+        return $this->routerEvents->pollNextEvent(
+            (int) ($state['router_after_id'] ?? 0),
+            (int) $this->config->get('router', 'core_events_wait_seconds', 0),
+            (int) $this->config->get('router', 'core_events_limit', 1)
+        );
+    }
+
+    private function advanceRouterCursor(int $eventId): void
+    {
+        if ($eventId <= 0) {
+            return;
+        }
+
+        $state = $this->readManagerState();
+        $current = (int) ($state['router_after_id'] ?? 0);
+        if ($eventId <= $current) {
+            return;
+        }
+
+        $state['router_after_id'] = $eventId;
+        $this->stateStore->write($state);
     }
 
     private function markWaitingForUserResponse(string $message): void

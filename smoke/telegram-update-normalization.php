@@ -4,10 +4,10 @@
 declare(strict_types=1);
 
 use CodexRuntime\Config;
+use CodexRuntime\Contracts\TransportIngressGatewayInterface;
 use CodexRuntime\ControlIngress;
 use CodexRuntime\ControlQueue\CommandRepository;
 use CodexRuntime\Logger;
-use CodexRuntime\ManagerQueue\EventRepository;
 use CodexRuntime\Telegram\TelegramApiClient;
 use CodexRuntime\Telegram\TelegramUpdateIngress;
 use CodexRuntime\Telegram\TelegramUpdateNormalizer;
@@ -17,7 +17,7 @@ use CodexRuntime\TransportMessageIngress;
 require_once __DIR__ . '/../src/bootstrap.php';
 
 $tmpRoot = sys_get_temp_dir() . '/codex-runtime-telegram-smoke-' . bin2hex(random_bytes(4));
-$queueRoot = $tmpRoot . '/manager-queue';
+$capturedPayloads = [];
 $config = new Config([
     'telegram' => [
         'instance_id' => 'telegram_smoke',
@@ -37,11 +37,27 @@ $config = new Config([
 ]);
 
 $logger = new Logger($tmpRoot . '/runtime.log');
-$repository = new EventRepository($config);
+$gateway = new class($capturedPayloads) implements TransportIngressGatewayInterface {
+    public function __construct(private mixed &$capturedPayloads)
+    {
+    }
+
+    public function submitMessage(\CodexRuntime\TransportInboundMessage $message): array
+    {
+        $payload = $message->toManagerEventPayload();
+        $this->capturedPayloads[] = $payload;
+
+        return [
+            'accepted' => true,
+            'event_id' => 'router-' . count($this->capturedPayloads),
+            'action_text' => null,
+        ];
+    }
+};
 $ingress = new TelegramUpdateIngress(
     $config,
     $logger,
-    new TransportMessageIngress($repository),
+    new TransportMessageIngress($gateway),
     new ControlIngress(new CommandRepository($config)),
     new TelegramUpdateNormalizer(),
     new TelegramApiClient('smoke-token', 'https://example.invalid', 'bot'),
@@ -93,17 +109,9 @@ try {
         assertNotEmpty($result['event_id'] ?? null, $case['name'] . ' event id should be returned');
         assertSame(null, $result['reason'] ?? null, $case['name'] . ' accepted update should not include a reason');
 
-        $eventPath = $queueRoot . '/new/' . $result['event_id'] . '.json';
-        assertFileExists($eventPath, $case['name'] . ' manager queue event should be created');
-
-        $eventRaw = file_get_contents($eventPath);
-        if ($eventRaw === false) {
-            throw new RuntimeException("Cannot read event payload: {$eventPath}");
-        }
-
-        $event = json_decode($eventRaw, true);
+        $event = $capturedPayloads[count($capturedPayloads) - 1] ?? null;
         if (!is_array($event)) {
-            throw new RuntimeException("Invalid JSON in event payload: {$eventPath}");
+            throw new RuntimeException('Transport ingress did not capture payload');
         }
 
         assertSame('user_message', $event['type'] ?? null, $case['name'] . ' event type');
@@ -120,7 +128,6 @@ try {
 
         fwrite(STDOUT, "Telegram update normalization smoke: OK ({$case['name']})\n");
         fwrite(STDOUT, "Fixture: {$case['fixture_path']}\n");
-        fwrite(STDOUT, "Queued event: {$eventPath}\n");
     }
 
     exit(0);
@@ -144,13 +151,6 @@ function assertNotEmpty(mixed $value, string $label): void
 {
     if ($value === null || $value === '') {
         throw new RuntimeException("Assertion failed for {$label}: value is empty");
-    }
-}
-
-function assertFileExists(string $path, string $label): void
-{
-    if (!is_file($path)) {
-        throw new RuntimeException("Assertion failed for {$label}: missing {$path}");
     }
 }
 

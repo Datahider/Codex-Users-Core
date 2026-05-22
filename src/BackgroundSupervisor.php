@@ -122,6 +122,10 @@ use CodexRuntime\ManagerWorker;
 use CodexRuntime\OutboundQueue\MessageRepository;
 use CodexRuntime\QueueTransportClient;
 use CodexRuntime\QueueStatusMessageService;
+use CodexRuntime\Router\ApiClient;
+use CodexRuntime\Router\CoreEventSource;
+use CodexRuntime\Router\CurlHttpClient;
+use CodexRuntime\Router\TransportIngressGateway;
 use CodexRuntime\WorkerShutdownFlag;
 $config = Config::fromFile(%s);
 $logger = new Logger((string) $config->require('storage', 'log_file'));
@@ -132,7 +136,12 @@ $statusMessages = new QueueStatusMessageService($config, new MessageRepository($
 $shutdown = new WorkerShutdownFlag($config, 'background', 'manager_worker_shutdown_flag_file');
 $activeTurn = new ActiveTurnRegistry(dirname((string) $config->require('storage', 'manager_state_file')) . '/active-turn.json');
 $codex = new CodexProcess($config, $logger, $activeTurn);
-$worker = new ManagerWorker($config, $logger, $events, $stateStore, $statusMessages, $shutdown, $transport, $codex);
+$routerApi = new ApiClient(
+    (string) $config->require('router', 'base_url'),
+    (string) $config->require('router', 'core_token'),
+    new CurlHttpClient()
+);
+$worker = new ManagerWorker($config, $logger, $events, $stateStore, $statusMessages, $shutdown, $transport, $codex, new CoreEventSource($routerApi));
 $worker->run();
 PHP,
             'command_watcher' => <<<'PHP'
@@ -168,9 +177,11 @@ use CodexRuntime\ControlQueue\CommandRepository;
 use CodexRuntime\ControlWatcher;
 use CodexRuntime\JsonFileStore;
 use CodexRuntime\Logger;
-use CodexRuntime\ManagerQueue\EventRepository;
 use CodexRuntime\OutboundQueue\MessageRepository;
 use CodexRuntime\QueueTransportClient;
+use CodexRuntime\Router\ApiClient;
+use CodexRuntime\Router\CurlHttpClient;
+use CodexRuntime\Router\TransportIngressGateway;
 use CodexRuntime\TransportMessageIngress;
 use CodexRuntime\WorkerShutdownFlag;
 $config = Config::fromFile(%s);
@@ -179,7 +190,12 @@ $commands = new CommandRepository($config);
 $activeTurn = new ActiveTurnRegistry(dirname((string) $config->require('storage', 'manager_state_file')) . '/active-turn.json');
 $stateStore = new JsonFileStore((string) $config->require('storage', 'manager_state_file'));
 $transport = new QueueTransportClient(new MessageRepository($config));
-$ingress = new TransportMessageIngress(new EventRepository($config));
+$routerApi = new ApiClient(
+    (string) $config->require('router', 'base_url'),
+    (string) $config->require('router', 'transport_token'),
+    new CurlHttpClient()
+);
+$ingress = new TransportMessageIngress(new TransportIngressGateway($routerApi));
 $sessions = new CodexSessionCatalog();
 $shutdown = new WorkerShutdownFlag($config, 'background', 'control_watcher_shutdown_flag_file');
 $watcher = new ControlWatcher($config, $logger, $commands, $activeTurn, $stateStore, $transport, $ingress, $sessions, $shutdown);
