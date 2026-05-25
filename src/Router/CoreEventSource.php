@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace CodexRuntime\Router;
 
-final class CoreEventSource
+final class CoreEventSource implements CoreEventSourceInterface
 {
     public function __construct(private ApiClient $api)
     {

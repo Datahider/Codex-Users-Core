@@ -23,6 +23,8 @@ return [
         'command_watcher_shutdown_flag_file' => __DIR__ . '/../var/run/command-watcher.shutdown.flag',
         'control_watcher_pid_file' => __DIR__ . '/../var/run/control-watcher.pid',
         'control_watcher_shutdown_flag_file' => __DIR__ . '/../var/run/control-watcher.shutdown.flag',
+        'router_ingress_worker_pid_file' => __DIR__ . '/../var/run/router-ingress-worker.pid',
+        'router_ingress_worker_shutdown_flag_file' => __DIR__ . '/../var/run/router-ingress-worker.shutdown.flag',
         'manager_worker_pid_file' => __DIR__ . '/../var/run/manager-worker.pid',
         'manager_worker_shutdown_flag_file' => __DIR__ . '/../var/run/manager-worker.shutdown.flag',
         'orchestrator_pid_file' => __DIR__ . '/../var/run/orchestrator.pid',
@@ -44,6 +46,8 @@ return [
         'core_events_wait_seconds' => 0,
         'core_events_limit' => 1,
         'retry_unavailable_after_seconds' => 15,
+        'state_file' => __DIR__ . '/../var/state/router-state.json',
+        'lock_file' => __DIR__ . '/../var/run/router-ingress-worker.lock',
     ],
     'exec_watcher' => [
         'poll_interval_ms' => 1000,

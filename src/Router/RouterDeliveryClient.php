@@ -4,10 +4,11 @@ declare(strict_types=1);
 
 namespace CodexRuntime\Router;
 
+use CodexRuntime\Contracts\TransportClientInterface;
 use CodexRuntime\Contracts\DeliveryClientInterface;
 use RuntimeException;
 
-final class RouterDeliveryClient implements DeliveryClientInterface
+final class RouterDeliveryClient implements DeliveryClientInterface, TransportClientInterface
 {
     public function __construct(private ApiClient $api)
     {
