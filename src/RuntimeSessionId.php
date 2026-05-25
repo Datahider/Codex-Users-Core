@@ -8,24 +8,24 @@ use RuntimeException;
 
 final class RuntimeSessionId
 {
-    public static function compose(string $sourceInstanceId, string $localSessionId): string
+    public static function compose(string $transportInstanceId, string $localSessionId): string
     {
-        $sourceInstanceId = trim($sourceInstanceId);
+        $transportInstanceId = trim($transportInstanceId);
         $localSessionId = trim($localSessionId);
 
-        if ($sourceInstanceId === '' || str_contains($sourceInstanceId, ':')) {
-            throw new RuntimeException('Invalid source instance id for runtime session');
+        if ($transportInstanceId === '' || str_contains($transportInstanceId, ':')) {
+            throw new RuntimeException('Invalid transport instance id for runtime session');
         }
 
         if ($localSessionId === '' || str_contains($localSessionId, ':')) {
             throw new RuntimeException('Invalid local session id for runtime session');
         }
 
-        return $sourceInstanceId . ':' . $localSessionId;
+        return $transportInstanceId . ':' . $localSessionId;
     }
 
     /**
-     * @return array{source_instance_id: string, local_session_id: string}|null
+     * @return array{transport_instance_id: string, local_session_id: string}|null
      */
     public static function split(string $runtimeSessionId): ?array
     {
@@ -40,7 +40,7 @@ final class RuntimeSessionId
         }
 
         return [
-            'source_instance_id' => trim($parts[0]),
+            'transport_instance_id' => trim($parts[0]),
             'local_session_id' => trim($parts[1]),
         ];
     }

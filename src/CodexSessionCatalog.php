@@ -32,7 +32,7 @@ final class CodexSessionCatalog
         );
         $stmt->execute([
             'cwd' => $homeDirectory,
-            'source' => 'local',
+            'source' => 'cli',
         ]);
 
         $rows = $stmt->fetchAll();

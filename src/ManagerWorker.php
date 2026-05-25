@@ -4,19 +4,15 @@ declare(strict_types=1);
 
 namespace CodexRuntime;
 
-use CodexRuntime\Contracts\DeliveryClientInterface;
 use CodexRuntime\Contracts\StatusMessageServiceInterface;
+use CodexRuntime\Contracts\TransportClientInterface;
 use CodexRuntime\ManagerQueue\EventRepository;
-use CodexRuntime\Router\RouterAuthException;
-use CodexRuntime\Router\CoreEventSource;
-use CodexRuntime\Router\RouterUnavailableException;
 use RuntimeException;
 use Throwable;
 
 final class ManagerWorker
 {
     private $lockHandle = null;
-    private int $routerRetryNotBefore = 0;
 
     public function __construct(
         private Config $config,
@@ -25,9 +21,8 @@ final class ManagerWorker
         private JsonFileStore $stateStore,
         private StatusMessageServiceInterface $statusMessages,
         private WorkerShutdownFlag $shutdown,
-        private DeliveryClientInterface $delivery,
-        private CodexProcess $codex,
-        private ?CoreEventSource $routerEvents = null
+        private TransportClientInterface $transport,
+        private CodexProcess $codex
     ) {
     }
 
@@ -49,26 +44,7 @@ final class ManagerWorker
 
             $runningPath = null;
             $event = null;
-            $routerEventId = null;
             try {
-                $event = $this->nextRouterEvent();
-                if ($event !== null) {
-                    $routerEventId = (int) ($event['router_event_id'] ?? 0);
-                    $eventId = (string) ($event['id'] ?? ('router:' . $routerEventId));
-                    $this->markActive($event);
-                    $this->logger->info('Manager worker handling Router event', [
-                        'event_id' => $eventId,
-                        'router_event_id' => $routerEventId,
-                        'type' => $event['type'] ?? 'unknown',
-                        'priority' => $event['priority'] ?? null,
-                    ]);
-
-                    $this->processEvent($event);
-                    $this->advanceRouterCursor($routerEventId);
-                    $this->clearActive();
-                    continue;
-                }
-
                 $nextPath = $this->events->nextPendingPath();
                 if ($nextPath === null) {
                     usleep($pollIntervalMs * 1000);
@@ -90,16 +66,6 @@ final class ManagerWorker
                 $this->clearActive();
             } catch (Throwable $e) {
                 $this->logger->error('Manager worker error', ['error' => $e->getMessage()]);
-                if ($routerEventId !== null && $routerEventId > 0) {
-                    try {
-                        $this->advanceRouterCursor($routerEventId);
-                    } catch (Throwable $cursorError) {
-                        $this->logger->error('Manager worker failed to advance Router cursor after error', [
-                            'router_event_id' => $routerEventId,
-                            'error' => $cursorError->getMessage(),
-                        ]);
-                    }
-                }
                 if ($runningPath !== null && is_file($runningPath)) {
                     try {
                         $failedEventId = is_array($event) ? (string) ($event['id'] ?? basename($runningPath, '.json')) : basename($runningPath, '.json');
@@ -170,6 +136,10 @@ final class ManagerWorker
         }
         $workingDir = $this->resolveWorkingDir(null);
         $prompt = $this->buildUserPrompt($runtimeSessionId, $text, $codexSessionId);
+        if ($outboundSessionId !== 'none') {
+            $this->transport->sendChatAction($outboundSessionId, 'typing');
+        }
+
         $result = $this->codex->run($prompt, $codexSessionId, $workingDir, function (string $partialText, string $latestChunk = '', bool $isProcessRunning = true) use ($outboundSessionId): void {
             if ($outboundSessionId !== 'none' && $latestChunk !== '' && $isProcessRunning) {
                 $this->sendChunkedMessages(
@@ -181,6 +151,9 @@ final class ManagerWorker
                 );
             }
 
+            if ($outboundSessionId !== 'none') {
+                $this->transport->sendChatAction($outboundSessionId, 'typing');
+            }
         }, $runtimeSessionId);
 
         $finalCodexSessionId = trim((string) ($result['session_id'] ?? '')) ?: $codexSessionId;
@@ -227,6 +200,8 @@ final class ManagerWorker
             $this->stateStore->write($state);
         }
 
+        $this->transport->sendChatAction($runtimeSessionId, 'typing');
+
         $result = $this->codex->run(
             $this->buildScheduledPrompt($text, $event),
             $codexSessionId,
@@ -235,6 +210,8 @@ final class ManagerWorker
                 if ($latestChunk !== '' && $isProcessRunning) {
                     $this->sendChunkedMessages($runtimeSessionId, $latestChunk, null, null, true);
                 }
+
+                $this->transport->sendChatAction($runtimeSessionId, 'typing');
             },
             $runtimeSessionId
         );
@@ -292,7 +269,7 @@ final class ManagerWorker
                 }
 
                 $lastStreamedChunk = trim($latestChunk);
-                $renderedChunk = $this->renderInternalDecisionOutputMessage($streamingSource, $latestChunk);
+                $renderedChunk = $this->renderInternalDecisionTransportMessage($streamingSource, $latestChunk);
                 foreach ($notificationSessionIds as $sessionId) {
                     $this->sendChunkedMessages($sessionId, $renderedChunk, null, null, true);
                 }
@@ -308,9 +285,9 @@ final class ManagerWorker
         $decisionText = trim((string) ($result['text'] ?? ''));
         $notification = $this->parseInternalDecisionNotification($decisionText);
         if ($streamingSource === 'idle_watchdog') {
-            $outputText = $this->resolveIdleWatchdogOutputText($decisionText, $notification);
-            if ($outputText !== '' && trim($outputText) !== $lastStreamedChunk) {
-                $renderedText = $this->renderInternalDecisionOutputMessage($streamingSource, $outputText);
+            $transportText = $this->resolveIdleWatchdogTransportText($decisionText, $notification);
+            if ($transportText !== '' && trim($transportText) !== $lastStreamedChunk) {
+                $renderedText = $this->renderInternalDecisionTransportMessage($streamingSource, $transportText);
                 foreach ($notificationSessionIds as $sessionId) {
                     $this->sendChunkedMessages($sessionId, $renderedText, null, null, true);
                 }
@@ -355,6 +332,8 @@ final class ManagerWorker
         $prompt = $this->buildBackgroundResultPrompt($event);
         $commentaryReplyTo = null;
 
+        $this->transport->sendChatAction($runtimeSessionId, 'typing');
+
         $result = $this->codex->run(
             $prompt,
             $codexSessionId !== '' ? $codexSessionId : null,
@@ -371,6 +350,7 @@ final class ManagerWorker
                     $commentaryReplyTo = null;
                 }
 
+                $this->transport->sendChatAction($runtimeSessionId, 'typing');
             },
             $runtimeSessionId
         );
@@ -451,7 +431,7 @@ TEXT;
     private function processIdleWatchdogDemoEvent(array $event): array
     {
         $demoText = trim((string) ($event['meta']['idle_watchdog_demo_text'] ?? ''));
-        $renderedText = $this->renderInternalDecisionOutputMessage('idle_watchdog', $demoText);
+        $renderedText = $this->renderInternalDecisionTransportMessage('idle_watchdog', $demoText);
         foreach ($this->notificationSessionIds() as $sessionId) {
             $this->sendChunkedMessages($sessionId, $renderedText, null, null, true);
         }
@@ -471,7 +451,7 @@ TEXT;
     /**
      * @param array{notify_user: bool, message: string, await_user_response: bool} $notification
      */
-    private function resolveIdleWatchdogOutputText(string $decisionText, array $notification): string
+    private function resolveIdleWatchdogTransportText(string $decisionText, array $notification): string
     {
         $decisionText = trim($decisionText);
         if ($decisionText === '') {
@@ -488,7 +468,7 @@ TEXT;
         return $message !== '' ? $message : $decisionText;
     }
 
-    private function renderInternalDecisionOutputMessage(string $source, string $text): string
+    private function renderInternalDecisionTransportMessage(string $source, string $text): string
     {
         $text = trim($text);
         if ($text === '') {
@@ -496,7 +476,7 @@ TEXT;
         }
 
         $prefix = match ($source) {
-            'idle_watchdog' => trim((string) $this->config->get('idle_watchdog', 'message_prefix', '⚙️')),
+            'idle_watchdog' => trim((string) $this->config->get('idle_watchdog', 'transport_prefix', '⚙️')),
             default => '',
         };
         $payload = $prefix !== '' ? ($prefix . ' ' . $text) : $text;
@@ -511,7 +491,7 @@ TEXT;
         }
 
         $bootstrap = trim((string) $this->config->get('codex', 'bootstrap_prompt', ''));
-        $labelPrefix = (string) $this->config->get('codex', 'session_label_prefix', 'runtime-channel-');
+        $labelPrefix = (string) $this->config->get('codex', 'session_label_prefix', 'transport-channel-');
         $label = $labelPrefix . $runtimeSessionId;
 
         if ($bootstrap === '') {
@@ -632,12 +612,12 @@ TEXT;
     {
         $chunks = $this->chunkText(
             $text,
-            (int) $this->config->get('delivery', 'message_chunk_size', 3800)
+            (int) $this->config->get('transport', 'message_chunk_size', 3800)
         );
         $lastMessageId = null;
         foreach ($chunks as $index => $chunk) {
             $replyTo = $index === 0 ? $replyToMessageId : null;
-            $message = $this->delivery->sendMessage($sessionId, $chunk, $replyTo, $parseMode, $disableNotification);
+            $message = $this->transport->sendMessage($sessionId, $chunk, $replyTo, $parseMode, $disableNotification);
             $lastMessageId = isset($message['message_id']) ? (int) $message['message_id'] : $lastMessageId;
         }
 
@@ -710,58 +690,7 @@ TEXT;
             'waiting_for_user_response' => !empty($state['waiting_for_user_response']),
             'waiting_for_user_response_at' => isset($state['waiting_for_user_response_at']) ? (string) $state['waiting_for_user_response_at'] : null,
             'waiting_for_user_response_message' => isset($state['waiting_for_user_response_message']) ? (string) $state['waiting_for_user_response_message'] : null,
-            'router_after_id' => isset($state['router_after_id']) ? (int) $state['router_after_id'] : 0,
         ];
-    }
-
-    /**
-     * @return array<string, mixed>|null
-     */
-    private function nextRouterEvent(): ?array
-    {
-        if ($this->routerEvents === null) {
-            return null;
-        }
-
-        if (time() < $this->routerRetryNotBefore) {
-            return null;
-        }
-
-        $state = $this->readManagerState();
-        try {
-            return $this->routerEvents->pollNextEvent(
-                (int) ($state['router_after_id'] ?? 0),
-                (int) $this->config->get('router', 'core_events_wait_seconds', 0),
-                (int) $this->config->get('router', 'core_events_limit', 1)
-            );
-        } catch (RouterAuthException $e) {
-            throw $e;
-        } catch (RouterUnavailableException $e) {
-            $delaySeconds = max(1, (int) $this->config->get('router', 'retry_unavailable_after_seconds', 15));
-            $this->routerRetryNotBefore = time() + $delaySeconds;
-            $this->logger->warning('Router unavailable; falling back to local manager queue', [
-                'error' => $e->getMessage(),
-                'retry_after_seconds' => $delaySeconds,
-            ]);
-
-            return null;
-        }
-    }
-
-    private function advanceRouterCursor(int $eventId): void
-    {
-        if ($eventId <= 0) {
-            return;
-        }
-
-        $state = $this->readManagerState();
-        $current = (int) ($state['router_after_id'] ?? 0);
-        if ($eventId <= $current) {
-            return;
-        }
-
-        $state['router_after_id'] = $eventId;
-        $this->stateStore->write($state);
     }
 
     private function markWaitingForUserResponse(string $message): void

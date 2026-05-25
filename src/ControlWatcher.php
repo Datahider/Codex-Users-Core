@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace CodexRuntime;
 
 use CodexRuntime\ControlQueue\CommandRepository;
-use CodexRuntime\Contracts\DeliveryClientInterface;
+use CodexRuntime\Contracts\TransportClientInterface;
 use DateTimeImmutable;
 use RuntimeException;
 use Throwable;
@@ -20,8 +20,8 @@ final class ControlWatcher
         private CommandRepository $commands,
         private ActiveTurnRegistry $activeTurn,
         private JsonFileStore $stateStore,
-        private DeliveryClientInterface $delivery,
-        private IngressPublisher $ingress,
+        private TransportClientInterface $transport,
+        private TransportMessageIngress $ingress,
         private CodexSessionCatalog $sessions,
         private WorkerShutdownFlag $shutdown
     ) {
@@ -97,7 +97,7 @@ final class ControlWatcher
     {
         return match ((string) ($command['type'] ?? '')) {
             'stop_turn' => $this->processStopTurn($command),
-            'ingress_command' => $this->processIngressCommand($command),
+            'transport_command' => $this->processTransportCommand($command),
             default => [
                 'ok' => true,
                 'stdout' => '',
@@ -157,7 +157,7 @@ final class ControlWatcher
      * @param array<string, mixed> $command
      * @return array<string, mixed>
      */
-    private function processIngressCommand(array $command): array
+    private function processTransportCommand(array $command): array
     {
         $text = trim((string) ($command['text'] ?? ''));
         $channelId = $command['channel_id'] ?? null;
@@ -166,7 +166,7 @@ final class ControlWatcher
             return [
                 'ok' => false,
                 'stdout' => '',
-                'stderr' => 'Invalid ingress command payload',
+                'stderr' => 'Invalid transport command payload',
                 'command' => $command,
             ];
         }
@@ -176,37 +176,31 @@ final class ControlWatcher
         }
 
         if (preg_match('/^\/stop(?:@\S+)?(?:\s|$)/ui', $text)) {
-            return $this->processStopCommand($command, $channelId, $sessionId);
+            return $this->processStopTransportCommand($command, $channelId, $sessionId);
         }
 
         if (preg_match('/^\/session(?:@\S+)?(?:\s|$)/ui', $text)) {
             return $this->processSessionCommand($command, $channelId, $sessionId, $text);
         }
 
-        $ingressResult = $this->ingress->enqueueUserMessage(new InboundMessage(
+        $eventId = $this->ingress->enqueueUserMessage(new TransportInboundMessage(
             channelId: $channelId,
             text: $text,
             sessionId: $sessionId,
             channelType: isset($command['channel_type']) ? (string) $command['channel_type'] : null,
             replyToMessageId: isset($command['reply_to_message_id']) ? (int) $command['reply_to_message_id'] : null,
             threadId: isset($command['thread_id']) ? (int) $command['thread_id'] : null,
-            sourceMessageId: $command['source_message_id'] ?? null,
+            transportMessageId: $command['transport_message_id'] ?? null,
             meta: is_array($command['meta'] ?? null) ? $command['meta'] : []
         ), true);
-
-        $actionText = trim((string) ($ingressResult['action_text'] ?? ''));
-        if ($actionText !== '') {
-            $this->delivery->sendMessage($sessionId, $actionText);
-        }
 
         return [
             'ok' => true,
             'stdout' => '',
             'stderr' => '',
             'command' => $command,
-            'forwarded_to_router' => !empty($ingressResult['accepted']),
-            'event_id' => $ingressResult['event_id'] ?? null,
-            'action_text' => $actionText !== '' ? $actionText : null,
+            'forwarded_to_manager' => true,
+            'event_id' => $eventId,
         ];
     }
 
@@ -221,7 +215,7 @@ final class ControlWatcher
         unset($state['sessions'][$runtimeSessionId]);
         $this->stateStore->write($state);
 
-        $this->delivery->sendMessage($runtimeSessionId, 'Текущая сессия сброшена.');
+        $this->transport->sendMessage($runtimeSessionId, 'Текущая сессия сброшена.');
 
         return [
             'ok' => true,
@@ -238,7 +232,7 @@ final class ControlWatcher
      * @param array<string, mixed> $command
      * @return array<string, mixed>
      */
-    private function processStopCommand(array $command, int|string $channelId, string $runtimeSessionId): array
+    private function processStopTransportCommand(array $command, int|string $channelId, string $runtimeSessionId): array
     {
         $result = $this->activeTurn->requestStop();
 
@@ -281,7 +275,7 @@ final class ControlWatcher
         $state['sessions'][$runtimeSessionId] = $sessionId;
         $this->stateStore->write($state);
 
-        $this->delivery->sendMessage(
+        $this->transport->sendMessage(
             $runtimeSessionId,
             "Текущая сессия установлена:\n```\n{$sessionId}\n```"
         );
@@ -303,7 +297,7 @@ final class ControlWatcher
         $homeDirectory = trim((string) (getenv('HOME') ?: '/home/web'));
         $sessions = $this->sessions->listForHomeDirectory($homeDirectory);
         if ($sessions === []) {
-            $this->delivery->sendMessage($runtimeSessionId, 'Для каталога ~ доступных сессий не найдено.');
+            $this->transport->sendMessage($runtimeSessionId, 'Для каталога ~ доступных сессий не найдено.');
             return;
         }
 
@@ -332,7 +326,7 @@ final class ControlWatcher
         }
 
         foreach ($chunks as $chunk) {
-            $this->delivery->sendMessage($runtimeSessionId, $chunk);
+            $this->transport->sendMessage($runtimeSessionId, $chunk);
         }
     }
 

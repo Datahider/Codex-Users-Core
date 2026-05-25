@@ -106,9 +106,9 @@ final class CodexProcess
             $pendingAgentMessage = null;
             $finalAgentMessage = null;
             $heartbeatIntervalMs = (int) $this->config->get(
-                'delivery',
+                'transport',
                 'progress_keepalive_ms',
-                4000
+                $this->config->get('telegram', 'typing_keepalive_ms', 4000)
             );
             $nextHeartbeatAt = microtime(true) + max(1, $heartbeatIntervalMs) / 1000;
 
