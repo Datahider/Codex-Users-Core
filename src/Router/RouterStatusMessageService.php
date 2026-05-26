@@ -5,14 +5,14 @@ declare(strict_types=1);
 namespace CodexRuntime\Router;
 
 use CodexRuntime\Config;
-use CodexRuntime\Contracts\DeliveryClientInterface;
 use CodexRuntime\Contracts\StatusMessageServiceInterface;
+use CodexRuntime\Contracts\TransportClientInterface;
 
 final class RouterStatusMessageService implements StatusMessageServiceInterface
 {
     public function __construct(
         private Config $config,
-        private DeliveryClientInterface $delivery
+        private TransportClientInterface $delivery
     ) {
     }
 
