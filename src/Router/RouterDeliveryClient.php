@@ -26,25 +26,51 @@ final class RouterDeliveryClient implements DeliveryClientInterface, TransportCl
             throw new RuntimeException('Cannot send an empty outbound message');
         }
 
-        $response = $this->api->postJson('/api/v1/core/outbound', [
-            'runtime_session_id' => (string) $chatId,
-            'kind' => 'message',
-            'text' => $text,
-            'attachments' => [],
-            'meta' => [
+        return $this->sendOutbound(
+            (string) $chatId,
+            $disableNotification ? 'commentary' : 'final',
+            $text,
+            [
                 'reply_to_message_id' => $replyToMessageId,
                 'parse_mode' => $parseMode,
                 'disable_notification' => $disableNotification,
-            ],
+            ]
+        );
+    }
+
+    public function sendChatAction(int|string $chatId, string $action = 'typing'): void
+    {
+    }
+
+    public function sendStatus(int|string $chatId, string $text, string $state, ?string $taskId = null): array
+    {
+        $meta = [
+            'state' => trim($state),
+        ];
+        if ($taskId !== null && trim($taskId) !== '') {
+            $meta['job_id'] = trim($taskId);
+        }
+
+        return $this->sendOutbound((string) $chatId, 'status', $text, $meta);
+    }
+
+    /**
+     * @param array<string, mixed> $meta
+     * @return array<string, mixed>
+     */
+    private function sendOutbound(string $runtimeSessionId, string $kind, string $text, array $meta): array
+    {
+        $response = $this->api->postJson('/api/v1/core/outbound', [
+            'runtime_session_id' => $runtimeSessionId,
+            'kind' => $kind,
+            'text' => $text,
+            'attachments' => [],
+            'meta' => $meta,
         ]);
 
         return [
             'message_id' => $response['event_id'] ?? null,
             'accepted' => !empty($response['accepted']),
         ];
-    }
-
-    public function sendChatAction(int|string $chatId, string $action = 'typing'): void
-    {
     }
 }

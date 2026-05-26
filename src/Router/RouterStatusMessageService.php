@@ -6,13 +6,12 @@ namespace CodexRuntime\Router;
 
 use CodexRuntime\Config;
 use CodexRuntime\Contracts\StatusMessageServiceInterface;
-use CodexRuntime\Contracts\TransportClientInterface;
 
 final class RouterStatusMessageService implements StatusMessageServiceInterface
 {
     public function __construct(
         private Config $config,
-        private TransportClientInterface $delivery
+        private RouterTransportClient $delivery
     ) {
     }
 
@@ -23,7 +22,12 @@ final class RouterStatusMessageService implements StatusMessageServiceInterface
 
     public function updateWorkerBusy(string $taskId, ?string $runtimeSessionId = null): void
     {
-        $this->sendStatus($runtimeSessionId, $this->busyText($taskId));
+        $runtimeSessionId = trim((string) ($runtimeSessionId ?? ''));
+        if ($runtimeSessionId === '') {
+            return;
+        }
+
+        $this->sendBusyStatus($runtimeSessionId, $taskId, $this->busyText($taskId));
     }
 
     public function updateStatus(string $text): void
@@ -68,6 +72,18 @@ final class RouterStatusMessageService implements StatusMessageServiceInterface
             return;
         }
 
-        $this->delivery->sendMessage($runtimeSessionId, $text, null, null, true);
+        $state = $text === $this->idleText() ? 'idle' : 'custom';
+        $this->delivery->sendStatus($runtimeSessionId, $text, $state);
+    }
+
+    private function sendBusyStatus(string $runtimeSessionId, string $taskId, string $text): void
+    {
+        $runtimeSessionId = trim($runtimeSessionId);
+        $text = trim($text);
+        if ($runtimeSessionId === '' || $text === '') {
+            return;
+        }
+
+        $this->delivery->sendStatus($runtimeSessionId, $text, 'busy', $taskId);
     }
 }
