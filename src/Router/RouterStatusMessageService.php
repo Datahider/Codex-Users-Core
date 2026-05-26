@@ -30,6 +30,26 @@ final class RouterStatusMessageService implements StatusMessageServiceInterface
         $this->sendBusyStatus($runtimeSessionId, $taskId, $this->busyText($taskId));
     }
 
+    public function updateWorkerFailed(string $taskId, ?string $runtimeSessionId = null): void
+    {
+        $runtimeSessionId = trim((string) ($runtimeSessionId ?? ''));
+        if ($runtimeSessionId === '') {
+            return;
+        }
+
+        $this->delivery->sendStatus($runtimeSessionId, $this->failedText($taskId), 'failed', trim($taskId));
+    }
+
+    public function sendHeartbeat(?string $runtimeSessionId = null): void
+    {
+        $runtimeSessionId = trim((string) ($runtimeSessionId ?? ''));
+        if ($runtimeSessionId === '') {
+            return;
+        }
+
+        $this->delivery->sendHeartbeat($runtimeSessionId);
+    }
+
     public function updateStatus(string $text): void
     {
     }
@@ -50,6 +70,13 @@ final class RouterStatusMessageService implements StatusMessageServiceInterface
     public function busyText(string $taskId): string
     {
         $template = (string) $this->config->get('manager_queue', 'busy_status_template', 'Busy: %s');
+
+        return sprintf($template, trim($taskId));
+    }
+
+    public function failedText(string $taskId): string
+    {
+        $template = (string) $this->config->get('manager_queue', 'failed_status_template', 'Ошибка выполнения задачи %s');
 
         return sprintf($template, trim($taskId));
     }

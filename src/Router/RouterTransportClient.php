@@ -34,4 +34,9 @@ final class RouterTransportClient implements TransportClientInterface
     {
         return $this->delivery->sendStatus($chatId, $text, $state, $taskId);
     }
+
+    public function sendHeartbeat(int|string $chatId): array
+    {
+        return $this->delivery->sendHeartbeat($chatId);
+    }
 }

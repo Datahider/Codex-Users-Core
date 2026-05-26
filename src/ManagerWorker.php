@@ -63,7 +63,7 @@ final class ManagerWorker
 
                 $result = $this->processEvent($event);
                 $this->events->finish($runningPath, !empty($result['ok']) ? 'done' : 'failed', $result);
-                $this->clearActive();
+                $this->clearActive(!empty($result['ok']));
             } catch (Throwable $e) {
                 $this->logger->error('Manager worker error', ['error' => $e->getMessage()]);
                 if ($runningPath !== null && is_file($runningPath)) {
@@ -83,7 +83,7 @@ final class ManagerWorker
                         ]);
                     }
                 }
-                $this->clearActive();
+                $this->clearActive(false);
                 usleep($pollIntervalMs * 1000);
             }
         }
@@ -137,7 +137,7 @@ final class ManagerWorker
         $workingDir = $this->resolveWorkingDir(null);
         $prompt = $this->buildUserPrompt($runtimeSessionId, $text, $codexSessionId);
         if ($outboundSessionId !== 'none') {
-            $this->transport->sendChatAction($outboundSessionId, 'typing');
+            $this->statusMessages->sendHeartbeat($outboundSessionId);
         }
 
         $result = $this->codex->run($prompt, $codexSessionId, $workingDir, function (string $partialText, string $latestChunk = '', bool $isProcessRunning = true) use ($outboundSessionId): void {
@@ -152,7 +152,7 @@ final class ManagerWorker
             }
 
             if ($outboundSessionId !== 'none') {
-                $this->transport->sendChatAction($outboundSessionId, 'typing');
+                $this->statusMessages->sendHeartbeat($outboundSessionId);
             }
         }, $runtimeSessionId);
 
@@ -200,7 +200,7 @@ final class ManagerWorker
             $this->stateStore->write($state);
         }
 
-        $this->transport->sendChatAction($runtimeSessionId, 'typing');
+        $this->statusMessages->sendHeartbeat($runtimeSessionId);
 
         $result = $this->codex->run(
             $this->buildScheduledPrompt($text, $event),
@@ -211,7 +211,7 @@ final class ManagerWorker
                     $this->sendChunkedMessages($runtimeSessionId, $latestChunk, null, null, true);
                 }
 
-                $this->transport->sendChatAction($runtimeSessionId, 'typing');
+                $this->statusMessages->sendHeartbeat($runtimeSessionId);
             },
             $runtimeSessionId
         );
@@ -332,7 +332,7 @@ final class ManagerWorker
         $prompt = $this->buildBackgroundResultPrompt($event);
         $commentaryReplyTo = null;
 
-        $this->transport->sendChatAction($runtimeSessionId, 'typing');
+        $this->statusMessages->sendHeartbeat($runtimeSessionId);
 
         $result = $this->codex->run(
             $prompt,
@@ -350,7 +350,7 @@ final class ManagerWorker
                     $commentaryReplyTo = null;
                 }
 
-                $this->transport->sendChatAction($runtimeSessionId, 'typing');
+                $this->statusMessages->sendHeartbeat($runtimeSessionId);
             },
             $runtimeSessionId
         );
@@ -666,13 +666,21 @@ TEXT;
         $this->statusMessages->updateWorkerBusy((string) $state['active_task_id'], $state['active_session_id']);
     }
 
-    private function clearActive(): void
+    private function clearActive(bool $notifyIdle = true): void
     {
         $state = $this->readManagerState();
         $activeSessionId = trim((string) ($state['active_session_id'] ?? ''));
+        $activeTaskId = trim((string) ($state['active_task_id'] ?? ''));
         unset($state['active_task_id'], $state['active_type'], $state['active_priority'], $state['active_started_at']);
         $this->stateStore->write($state);
-        $this->statusMessages->updateWorkerIdle($activeSessionId);
+        if ($notifyIdle) {
+            $this->statusMessages->updateWorkerIdle($activeSessionId);
+            return;
+        }
+
+        if ($activeSessionId !== '') {
+            $this->statusMessages->updateWorkerFailed($activeTaskId, $activeSessionId);
+        }
     }
 
     private function readManagerState(): array

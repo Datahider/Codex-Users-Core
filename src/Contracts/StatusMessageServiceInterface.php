@@ -10,6 +10,10 @@ interface StatusMessageServiceInterface
 
     public function updateWorkerBusy(string $taskId, ?string $runtimeSessionId = null): void;
 
+    public function updateWorkerFailed(string $taskId, ?string $runtimeSessionId = null): void;
+
+    public function sendHeartbeat(?string $runtimeSessionId = null): void;
+
     public function updateStatus(string $text): void;
 
     public function forceUpdateStatus(string $text): void;
@@ -19,6 +23,8 @@ interface StatusMessageServiceInterface
     public function idleText(): string;
 
     public function busyText(string $taskId): string;
+
+    public function failedText(string $taskId): string;
 
     public function restartText(): string;
 

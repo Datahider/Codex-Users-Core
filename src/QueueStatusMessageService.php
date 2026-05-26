@@ -26,6 +26,27 @@ final class QueueStatusMessageService implements StatusMessageServiceInterface
         $this->enqueueStatus('busy', $taskId !== '' ? $taskId : null, $this->busyText($taskId), $runtimeSessionId);
     }
 
+    public function updateWorkerFailed(string $taskId, ?string $runtimeSessionId = null): void
+    {
+        $taskId = trim($taskId);
+        $this->enqueueStatus('failed', $taskId !== '' ? $taskId : null, $this->failedText($taskId), $runtimeSessionId);
+    }
+
+    public function sendHeartbeat(?string $runtimeSessionId = null): void
+    {
+        $runtimeSessionId = trim((string) ($runtimeSessionId ?? ''));
+        if ($runtimeSessionId === '') {
+            return;
+        }
+
+        $this->messages->enqueue([
+            'type' => 'heartbeat',
+            'kind' => 'heartbeat',
+            'session_id' => $runtimeSessionId,
+            'text' => '',
+        ]);
+    }
+
     public function updateStatus(string $text): void
     {
         $this->enqueueStatus('custom', null, $text);
@@ -49,6 +70,13 @@ final class QueueStatusMessageService implements StatusMessageServiceInterface
     public function busyText(string $taskId): string
     {
         $template = (string) $this->config->get('manager_queue', 'busy_status_template', 'Busy: %s');
+
+        return sprintf($template, trim($taskId));
+    }
+
+    public function failedText(string $taskId): string
+    {
+        $template = (string) $this->config->get('manager_queue', 'failed_status_template', 'Ошибка выполнения задачи %s');
 
         return sprintf($template, trim($taskId));
     }

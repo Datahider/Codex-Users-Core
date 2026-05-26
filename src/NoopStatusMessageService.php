@@ -16,6 +16,14 @@ final class NoopStatusMessageService implements StatusMessageServiceInterface
     {
     }
 
+    public function updateWorkerFailed(string $taskId, ?string $runtimeSessionId = null): void
+    {
+    }
+
+    public function sendHeartbeat(?string $runtimeSessionId = null): void
+    {
+    }
+
     public function updateStatus(string $text): void
     {
     }
@@ -36,6 +44,11 @@ final class NoopStatusMessageService implements StatusMessageServiceInterface
     public function busyText(string $summary): string
     {
         return 'Busy: ' . trim($summary);
+    }
+
+    public function failedText(string $taskId): string
+    {
+        return 'Failed: ' . trim($taskId);
     }
 
     public function restartText(): string

@@ -30,6 +30,15 @@ final class MaxStatusMessageService implements StatusMessageServiceInterface
         $this->updateStatus($this->busyText($taskId));
     }
 
+    public function updateWorkerFailed(string $taskId, ?string $runtimeSessionId = null): void
+    {
+        $this->updateStatus($this->failedText($taskId));
+    }
+
+    public function sendHeartbeat(?string $runtimeSessionId = null): void
+    {
+    }
+
     public function forceUpdateStatus(string $text): void
     {
         $this->notifyAll($text);
@@ -57,6 +66,13 @@ final class MaxStatusMessageService implements StatusMessageServiceInterface
         $template = (string) $this->config->get('manager_queue', 'busy_status_template', 'Busy: %s');
 
         return sprintf($template, $taskId);
+    }
+
+    public function failedText(string $taskId): string
+    {
+        $template = (string) $this->config->get('manager_queue', 'failed_status_template', 'Ошибка выполнения задачи %s');
+
+        return sprintf($template, trim($taskId));
     }
 
     public function restartText(): string

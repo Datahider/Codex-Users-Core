@@ -42,6 +42,11 @@ final class RouterDeliveryClient implements DeliveryClientInterface, TransportCl
     {
     }
 
+    public function sendHeartbeat(int|string $chatId): array
+    {
+        return $this->sendOutbound((string) $chatId, 'heartbeat', '', []);
+    }
+
     public function sendStatus(int|string $chatId, string $text, string $state, ?string $taskId = null): array
     {
         $meta = [

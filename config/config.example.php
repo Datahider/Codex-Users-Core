@@ -92,6 +92,7 @@ return [
         'poll_interval_ms' => 1000,
         'idle_status_text' => 'Свободен',
         'busy_status_template' => 'Начал выполнение задачи %s',
+        'failed_status_template' => 'Ошибка выполнения задачи %s',
         'restart_status_text' => 'Restarting...',
         'ready_message_text' => 'Ready.',
         'queue_new' => __DIR__ . '/../var/manager-queue/new',
