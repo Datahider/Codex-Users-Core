@@ -4,66 +4,42 @@
 
 - `Core` — это runtime-ядро для обработки входящих событий через `codex`.
 - Ядро однопользовательское.
-- Ядро не должно содержать transport-specific реализацию, кроме внешнего интерфейса с `Router`.
+- Transport-specific реализация в `Core` не живёт. Допустим только внешний интерфейс с `Router`.
 
 ## Текущее состояние
 
-- Ядро сейчас состоит из:
-  - `router_ingress_worker`
-  - `manager_worker`
-  - `exec_watcher`
-  - `command_watcher`
-  - `control_watcher`
-  - `scheduler_worker`
+- Активные воркеры:
+- `router_ingress_worker`
+- `manager_worker`
+- `exec_watcher`
+- `command_watcher`
+- `control_watcher`
+- `scheduler_worker`
 - Основной entrypoint: `bin/run-core.php`.
 - Фоновыми воркерами управляет `src/BackgroundSupervisor.php`.
 
-## Границы слоя
-
-Core owns:
+## Ответственность Core
 
 - приём входящих событий из `Router`
-- manager queue
+- `manager_queue` и связанные runtime queues
 - запуск `codex`
-- `runtime_session_id -> codex_session_id`
-- command/exec/control/scheduler очереди
-- core state и lifecycle
+- mapping `runtime_session_id -> codex_session_id`
+- core state, session contracts и lifecycle воркеров
 
-Core may know about `Router` only as:
+## Граница с Router
 
-- ingress source событий
-- outbound/status delivery boundary
-- HTTP/API contract
-- auth token/base URL for этого boundary
-
-Core must not own:
-
-- transport-specific код
-- transport-specific команды
-- transport-specific rendering/markup
-- transport-specific state
-- transport-specific message ids
-- transport-specific polling/webhook logic
-
-## Запрещено
-
-- Добавлять в core state transport-local поля.
-- Вшивать fallback/compatibility-path без явного требования.
-- Смешивать runtime orchestration с transport presentation.
-
-## Разрешённый интерфейс
-
-Допустимая внешняя интеграция для этого репозитория:
-
+- `Router` для `Core` — внешний boundary, а не transport-слой внутри репозитория.
+- Допустимы только:
 - `Router` API client
 - `Router` ingress worker
 - `Router` outbound/status client
-
-Если новая функциональность не относится к этим границам или к внутренним core queue/session contracts, ей не место в этом репозитории.
+- `HTTP`/auth contract этого boundary
+- Если изменение относится к transport presentation, transport state, transport message ids, polling/webhook logic или transport-командам, оно уходит в transport-репозиторий или внешний слой над `Router`.
 
 ## Правила изменений
 
 - Перед любым следующим кодовым шагом проверять чистоту дерева.
 - Если дерево грязное, сначала делать commit.
+- Изменения контрактов начинать с `*.md`.
 - Для изменений контрактов сначала обновлять документацию, потом тесты, потом код.
-
+- Не добавлять fallback, compatibility-path и скрытое самовосстановление без явного требования.
