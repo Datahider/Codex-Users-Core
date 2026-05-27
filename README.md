@@ -24,13 +24,6 @@ Core owns:
 - scheduled prompts released into manager queue
 - outbound semantic messages for the transport boundary
 
-Core does not own:
-
-- transport rendering and markup
-- transport-local settings and message ids
-- transport polling/webhook presentation logic
-- MAX/Telegram-specific UI behavior
-
 ## Requirements
 
 - Linux
