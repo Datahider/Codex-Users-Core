@@ -1,6 +1,4 @@
 /vendor/
 /var/
 /config/config.php
-/config/codex-runtime-telegram-config.php
-/config/codex-runtime-cakk-config.php
 /project-state.json

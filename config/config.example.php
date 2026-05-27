@@ -3,7 +3,7 @@
 return [
     'codex' => [
         'bin' => 'codex',
-        'cwd' => '/home/web',
+        'cwd' => __DIR__ . '/..',
         'extra_args' => [
             '--skip-git-repo-check',
             '--json',

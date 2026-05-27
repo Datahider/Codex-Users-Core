@@ -1,0 +1,93 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+require_once __DIR__ . '/../src/bootstrap.php';
+
+try {
+    $tmpRoot = sys_get_temp_dir() . '/codex-runtime-install-setup-' . substr(bin2hex(random_bytes(4)), 0, 8);
+    $configPath = $tmpRoot . '/config.php';
+
+    if (!mkdir($tmpRoot, 0775, true) && !is_dir($tmpRoot)) {
+        throw new RuntimeException("Cannot create temporary root {$tmpRoot}");
+    }
+
+    file_put_contents($configPath, <<<'PHP'
+<?php
+return [
+    'codex' => [
+        'bin' => 'codex',
+        'cwd' => '/home/web',
+    ],
+    'router' => [
+        'base_url' => 'https://router.example',
+        'core_token' => 'token',
+    ],
+    'storage' => [
+        'root' => '__TMP__/runtime',
+    ],
+];
+PHP);
+
+    $configSource = str_replace('__TMP__', addslashes($tmpRoot), (string) file_get_contents($configPath));
+    file_put_contents($configPath, $configSource);
+
+    $setupScript = realpath(__DIR__ . '/../bin/setup.php');
+    if ($setupScript === false) {
+        throw new RuntimeException('bin/setup.php is missing');
+    }
+
+    $output = [];
+    $exitCode = 1;
+    exec(escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg($setupScript) . ' ' . escapeshellarg($configPath) . ' 2>&1', $output, $exitCode);
+    if ($exitCode !== 0) {
+        throw new RuntimeException("setup failed:\n" . implode("\n", $output));
+    }
+
+    $expectedPaths = [
+        $tmpRoot . '/runtime',
+        $tmpRoot . '/runtime/run',
+        $tmpRoot . '/runtime/state',
+        $tmpRoot . '/runtime/log',
+        $tmpRoot . '/runtime/tmp',
+        $tmpRoot . '/runtime/codex-debug',
+        $tmpRoot . '/runtime/manager-queue/new',
+        $tmpRoot . '/runtime/manager-queue/running',
+        $tmpRoot . '/runtime/manager-queue/done',
+        $tmpRoot . '/runtime/manager-queue/failed',
+        $tmpRoot . '/runtime/manager-results',
+        $tmpRoot . '/runtime/command-queue/new',
+        $tmpRoot . '/runtime/command-queue/running',
+        $tmpRoot . '/runtime/command-queue/done',
+        $tmpRoot . '/runtime/command-queue/failed',
+        $tmpRoot . '/runtime/command-results',
+        $tmpRoot . '/runtime/exec-queue/new',
+        $tmpRoot . '/runtime/exec-queue/running',
+        $tmpRoot . '/runtime/exec-queue/done',
+        $tmpRoot . '/runtime/exec-queue/failed',
+        $tmpRoot . '/runtime/exec-results',
+        $tmpRoot . '/runtime/control-queue/new',
+        $tmpRoot . '/runtime/control-queue/running',
+        $tmpRoot . '/runtime/control-queue/done',
+        $tmpRoot . '/runtime/control-queue/failed',
+        $tmpRoot . '/runtime/control-results',
+        $tmpRoot . '/runtime/outbound-queue/new',
+        $tmpRoot . '/runtime/outbound-queue/running',
+        $tmpRoot . '/runtime/outbound-queue/done',
+        $tmpRoot . '/runtime/outbound-queue/failed',
+        $tmpRoot . '/runtime/scheduled-queue',
+    ];
+
+    foreach ($expectedPaths as $path) {
+        if (!is_dir($path)) {
+            throw new RuntimeException("Expected directory missing: {$path}");
+        }
+    }
+
+    fwrite(STDOUT, "Install setup smoke: OK\n");
+    exit(0);
+} catch (Throwable $e) {
+    fwrite(STDERR, "Install setup smoke failed: {$e->getMessage()}\n");
+    exit(1);
+}
