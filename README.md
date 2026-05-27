@@ -12,6 +12,25 @@
 
 Transport-specific UI, polling, webhook handling, and message formatting do not live here.
 
+## Scope
+
+Core owns:
+
+- Router ingress consumption
+- manager queue processing
+- Codex execution
+- `runtime_session_id -> codex_session_id`
+- control commands such as stop/reset/session
+- scheduled prompts released into manager queue
+- outbound semantic messages for the transport boundary
+
+Core does not own:
+
+- transport rendering and markup
+- transport-local settings and message ids
+- transport polling/webhook presentation logic
+- MAX/Telegram-specific UI behavior
+
 ## Requirements
 
 - Linux
@@ -86,10 +105,24 @@ php smoke/doctor-ready-config.php
 
 - queues, logs, state and pid files live under `storage.root`
 - default storage root is `./var`
-- storage details are documented in [STORAGE.md](./STORAGE.md)
+- core state lives in `var/state`
+- worker locks and pid files live in `var/run`
+- core-owned queues are:
+  - `manager-queue`
+  - `outbound-queue`
+  - `control-queue`
+  - `scheduled-queue`
+
+## Queue boundary
+
+Core may emit only semantic outbound payloads:
+
+- `message`
+- `chat_action`
+- `status`
+
+Transport code decides how those payloads are rendered and delivered.
 
 ## Boundaries
 
-- layer rules: [LAYERS.md](./LAYERS.md)
-- core ownership: [CORE.md](./CORE.md)
 - project scope: [PROJECT.md](./PROJECT.md)
