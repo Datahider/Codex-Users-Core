@@ -10,8 +10,6 @@
 - stores runtime state on local disk
 - starts and keeps background workers alive
 
-Transport-specific UI, polling, webhook handling, and message formatting do not live here.
-
 ## Scope
 
 Core owns:
@@ -100,7 +98,7 @@ php smoke/doctor-ready-config.php
 Core may emit only semantic outbound payloads:
 
 - `message`
-- `chat_action`
+- `heartbeat`
 - `status`
 
 Transport code decides how those payloads are rendered and delivered.
