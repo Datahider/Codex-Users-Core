@@ -96,7 +96,6 @@ final class ControlWatcher
     private function processCommand(array $command): array
     {
         return match ((string) ($command['type'] ?? '')) {
-            'stop_turn' => $this->processStopTurn($command),
             'transport_command' => $this->processTransportCommand($command),
             default => [
                 'ok' => true,
@@ -132,26 +131,6 @@ final class ControlWatcher
 
         $pidFile = (string) $this->config->get('background', 'control_watcher_pid_file', $paths->workerPidFile('control_watcher'));
         file_put_contents($pidFile, (string) getmypid());
-    }
-
-    /**
-     * @param array<string, mixed> $command
-     * @return array<string, mixed>
-     */
-    private function processStopTurn(array $command): array
-    {
-        $result = $this->activeTurn->requestStop();
-
-        return [
-            'ok' => true,
-            'stdout' => '',
-            'stderr' => '',
-            'command' => $command,
-            'signal' => 'SIGTERM',
-            'signal_sent' => $result['signal_sent'],
-            'pid' => $result['pid'],
-            'active_turn' => $result['active_turn'],
-        ];
     }
 
     /**

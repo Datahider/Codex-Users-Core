@@ -15,25 +15,6 @@ final class ControlIngress
     /**
      * @param array<string, mixed> $meta
      */
-    public function enqueueStop(
-        int|string $channelId,
-        ?string $sessionId = null,
-        int|string|null $transportMessageId = null,
-        array $meta = []
-    ): string {
-        return $this->commands->enqueue([
-            'type' => 'stop_turn',
-            'channel_id' => $channelId,
-            'session_id' => $sessionId,
-            'transport_message_id' => $transportMessageId,
-            'meta' => $meta,
-            'priority' => 100,
-        ]);
-    }
-
-    /**
-     * @param array<string, mixed> $meta
-     */
     public function enqueueTransportCommand(
         int|string $channelId,
         string $text,
