@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace CodexRuntime\Router;
 
 use CodexRuntime\Config;
+use CodexRuntime\ControlIngress;
 use CodexRuntime\JsonFileStore;
 use CodexRuntime\Logger;
 use CodexRuntime\ManagerQueue\EventRepository;
@@ -20,6 +21,7 @@ final class RouterIngressWorker
         private Logger $logger,
         private CoreEventSourceInterface $source,
         private EventRepository $events,
+        private ControlIngress $controls,
         private JsonFileStore $stateStore,
         private WorkerShutdownFlag $shutdown
     ) {
@@ -80,11 +82,25 @@ final class RouterIngressWorker
         $event['priority'] = max(50, (int) ($event['priority'] ?? 50));
         $event['session_id'] = $runtimeSessionId;
         $event['text'] = $text;
-        $mergedEventId = $this->events->mergePendingRuntimeMessage($runtimeSessionId, $text);
-        if ($mergedEventId === null) {
-            $this->events->enqueue($event);
+
+        if ($this->isSlashCommand($text)) {
+            $event['id'] = $this->controls->enqueueTransportCommand(
+                $runtimeSessionId,
+                $text,
+                $runtimeSessionId,
+                null,
+                null,
+                null,
+                null,
+                is_array($event['meta'] ?? null) ? $event['meta'] : []
+            );
         } else {
-            $event['id'] = $mergedEventId;
+            $mergedEventId = $this->events->mergePendingRuntimeMessage($runtimeSessionId, $text);
+            if ($mergedEventId === null) {
+                $this->events->enqueue($event);
+            } else {
+                $event['id'] = $mergedEventId;
+            }
         }
 
         $state['router_after_id'] = $routerEventId;
@@ -124,5 +140,10 @@ final class RouterIngressWorker
 
         $pidFile = (string) $this->config->get('background', 'router_ingress_worker_pid_file', $paths->workerPidFile('router_ingress_worker'));
         file_put_contents($pidFile, (string) getmypid());
+    }
+
+    private function isSlashCommand(string $text): bool
+    {
+        return str_starts_with(ltrim($text), '/');
     }
 }

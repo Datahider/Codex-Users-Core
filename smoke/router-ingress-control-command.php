@@ -16,7 +16,7 @@ use CodexRuntime\WorkerShutdownFlag;
 require_once __DIR__ . '/../src/bootstrap.php';
 
 try {
-    $tmpRoot = sys_get_temp_dir() . '/codex-runtime-router-ingress-smoke-' . substr(bin2hex(random_bytes(4)), 0, 8);
+    $tmpRoot = sys_get_temp_dir() . '/codex-runtime-router-control-smoke-' . substr(bin2hex(random_bytes(4)), 0, 8);
     mkdir($tmpRoot, 0775, true);
 
     $configPath = $tmpRoot . '/config.php';
@@ -27,14 +27,6 @@ return [
         'router_ingress_worker_pid_file' => '__TMP__/run/router-ingress-worker.pid',
         'router_ingress_worker_shutdown_flag_file' => '__TMP__/run/router-ingress-worker.shutdown.flag',
     ],
-    'manager_queue' => [
-        'queue_new' => '__TMP__/manager-queue/new',
-        'queue_running' => '__TMP__/manager-queue/running',
-        'queue_done' => '__TMP__/manager-queue/done',
-        'queue_failed' => '__TMP__/manager-queue/failed',
-        'results_dir' => '__TMP__/manager-results',
-        'lock_file' => '__TMP__/run/manager-worker.lock',
-    ],
     'router' => [
         'core_events_wait_seconds' => 0,
         'core_events_limit' => 1,
@@ -44,10 +36,7 @@ return [
     ],
     'storage' => [
         'root' => '__TMP__',
-        'state_file' => '__TMP__/state/state.json',
-        'manager_state_file' => '__TMP__/state/manager-state.json',
         'log_file' => '__TMP__/log/runtime.log',
-        'tmp_dir' => '__TMP__/tmp',
     ],
 ];
 PHP);
@@ -62,64 +51,54 @@ PHP);
     $shutdown = new WorkerShutdownFlag($config, 'background', 'router_ingress_worker_shutdown_flag_file');
 
     $source = new class implements CoreEventSourceInterface {
-        public int $after_id = -1;
-        public int $wait = -1;
-        public int $limit = -1;
-
         public function pollNextEvent(int $afterId, int $wait, int $limit = 1): ?array
         {
-            $this->after_id = $afterId;
-            $this->wait = $wait;
-            $this->limit = $limit;
-
             return [
-                'router_event_id' => 501,
+                'router_event_id' => 701,
                 'type' => 'user_message',
                 'priority' => 50,
                 'session_id' => 'cli_main:session-42',
-                'text' => 'router ping',
+                'text' => '/stop',
                 'meta' => [
                     'source' => 'router',
-                    'attachments' => [],
-                    'router_meta' => ['source' => 'smoke'],
                 ],
             ];
         }
     };
 
     $worker = new RouterIngressWorker($config, $logger, $source, $events, $controls, $stateStore, $shutdown);
-    $processed = $worker->pollOnce();
-    assertSame(true, $processed, 'processed');
-    assertSame(0, $source->after_id, 'after_id passed to source');
-    assertSame(0, $source->wait, 'wait passed to source');
-    assertSame(1, $source->limit, 'limit passed to source');
+    assertSame(true, $worker->pollOnce(), 'processed');
 
-    $queuedPath = $events->nextPendingPath();
-    if ($queuedPath === null) {
-        throw new RuntimeException('Router ingress worker did not enqueue a manager event');
+    if ($events->nextPendingPath() !== null) {
+        throw new RuntimeException('Slash command must not be enqueued into manager queue');
     }
 
-    $event = $events->loadEvent($queuedPath);
-    assertSame('user_message', $event['type'] ?? null, 'event type');
-    assertSame('cli_main:session-42', $event['session_id'] ?? null, 'runtime session id');
-    assertSame('router ping', $event['text'] ?? null, 'event text');
-    assertSame('router', $event['meta']['source'] ?? null, 'event source');
+    $controlDir = $tmpRoot . '/control-queue/new';
+    $files = glob($controlDir . '/*.json');
+    if ($files === false || count($files) !== 1) {
+        throw new RuntimeException('Expected exactly one control command');
+    }
 
-    $state = $stateStore->read();
-    assertSame(501, $state['router_after_id'] ?? null, 'router after id');
+    $command = json_decode((string) file_get_contents($files[0]), true);
+    if (!is_array($command)) {
+        throw new RuntimeException('Control command is not valid json');
+    }
 
-    fwrite(STDOUT, "Router ingress worker smoke: OK\n");
+    assertSame('transport_command', $command['type'] ?? null, 'type');
+    assertSame('/stop', $command['text'] ?? null, 'text');
+    assertSame('cli_main:session-42', $command['session_id'] ?? null, 'session');
+    assertSame('cli_main:session-42', $command['channel_id'] ?? null, 'channel');
+
+    fwrite(STDOUT, "Router ingress control command smoke: OK\n");
     exit(0);
 } catch (Throwable $e) {
-    fwrite(STDERR, "Router ingress worker smoke failed: {$e->getMessage()}\n");
+    fwrite(STDERR, "Router ingress control command smoke failed: {$e->getMessage()}\n");
     exit(1);
 }
 
 function assertSame(mixed $expected, mixed $actual, string $label): void
 {
     if ($expected !== $actual) {
-        $expectedText = var_export($expected, true);
-        $actualText = var_export($actual, true);
-        throw new RuntimeException("Assertion failed for {$label}: expected {$expectedText}, got {$actualText}");
+        throw new RuntimeException("Assertion failed for {$label}: expected " . var_export($expected, true) . ', got ' . var_export($actual, true));
     }
 }

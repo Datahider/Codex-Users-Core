@@ -147,6 +147,8 @@ PHP,
 chdir(%s);
 require %s;
 use CodexRuntime\Config;
+use CodexRuntime\ControlIngress;
+use CodexRuntime\ControlQueue\CommandRepository;
 use CodexRuntime\JsonFileStore;
 use CodexRuntime\Logger;
 use CodexRuntime\ManagerQueue\EventRepository;
@@ -165,9 +167,10 @@ $source = new CoreEventSource(new ApiClient(
     new CurlHttpClient()
 ));
 $events = new EventRepository($config);
+$controls = new ControlIngress(new CommandRepository($config));
 $stateStore = new JsonFileStore((string) $config->get('router', 'state_file', $paths->routerStateFile()));
 $shutdown = new WorkerShutdownFlag($config, 'background', 'router_ingress_worker_shutdown_flag_file', $paths->workerShutdownFlagFile('router_ingress_worker'));
-$worker = new RouterIngressWorker($config, $logger, $source, $events, $stateStore, $shutdown);
+$worker = new RouterIngressWorker($config, $logger, $source, $events, $controls, $stateStore, $shutdown);
 $worker->run();
 PHP,
             'command_watcher' => <<<'PHP'

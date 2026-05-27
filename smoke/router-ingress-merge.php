@@ -6,6 +6,8 @@ declare(strict_types=1);
 require_once __DIR__ . '/../src/bootstrap.php';
 
 use CodexRuntime\Config;
+use CodexRuntime\ControlIngress;
+use CodexRuntime\ControlQueue\CommandRepository;
 use CodexRuntime\JsonFileStore;
 use CodexRuntime\Logger;
 use CodexRuntime\ManagerQueue\EventRepository;
@@ -62,6 +64,7 @@ PHP);
     $config = Config::fromFile($configPath);
     $logger = new Logger($tmpRoot . '/runtime.log');
     $events = new EventRepository($config);
+    $controls = new ControlIngress(new CommandRepository($config));
     $stateStore = new JsonFileStore($tmpRoot . '/router-state.json');
     $shutdown = new WorkerShutdownFlag($config, 'background', 'router_ingress_worker_shutdown_flag_file', $tmpRoot . '/shutdown.flag');
     $source = new StubSource([
@@ -79,7 +82,7 @@ PHP);
         ],
     ]);
 
-    $worker = new RouterIngressWorker($config, $logger, $source, $events, $stateStore, $shutdown);
+    $worker = new RouterIngressWorker($config, $logger, $source, $events, $controls, $stateStore, $shutdown);
     assertSame(true, $worker->pollOnce(), 'first poll processed');
     assertSame(true, $worker->pollOnce(), 'second poll processed');
 
