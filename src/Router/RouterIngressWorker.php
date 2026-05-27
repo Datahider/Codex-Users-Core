@@ -80,7 +80,12 @@ final class RouterIngressWorker
         $event['priority'] = max(50, (int) ($event['priority'] ?? 50));
         $event['session_id'] = $runtimeSessionId;
         $event['text'] = $text;
-        $this->events->enqueue($event);
+        $mergedEventId = $this->events->mergePendingRuntimeMessage($runtimeSessionId, $text);
+        if ($mergedEventId === null) {
+            $this->events->enqueue($event);
+        } else {
+            $event['id'] = $mergedEventId;
+        }
 
         $state['router_after_id'] = $routerEventId;
         $this->stateStore->write($state);
