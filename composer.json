@@ -3,8 +3,6 @@
     "description": "Transport-agnostic runtime core for Codex-based operators",
     "type": "project",
     "require": {
-        "fastvolt/markdown": "v0.3.0.x-dev",
-        "max-api-php/client": "dev-main@dev",
         "losthost/background-process": "^1.1"
     },
     "autoload": {
