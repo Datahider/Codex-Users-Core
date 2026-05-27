@@ -9,7 +9,7 @@ use CodexRuntime\Config;
 use CodexRuntime\RuntimeInstaller;
 
 try {
-    $tmpRoot = sys_get_temp_dir() . '/codex-runtime-install-setup-' . substr(bin2hex(random_bytes(4)), 0, 8);
+    $tmpRoot = sys_get_temp_dir() . '/codex-runtime-storage-layout-' . substr(bin2hex(random_bytes(4)), 0, 8);
     $configPath = $tmpRoot . '/config.php';
 
     if (!mkdir($tmpRoot, 0775, true) && !is_dir($tmpRoot)) {
@@ -52,16 +52,6 @@ PHP);
         $tmpRoot . '/runtime/manager-queue/done',
         $tmpRoot . '/runtime/manager-queue/failed',
         $tmpRoot . '/runtime/manager-results',
-        $tmpRoot . '/runtime/command-queue/new',
-        $tmpRoot . '/runtime/command-queue/running',
-        $tmpRoot . '/runtime/command-queue/done',
-        $tmpRoot . '/runtime/command-queue/failed',
-        $tmpRoot . '/runtime/command-results',
-        $tmpRoot . '/runtime/exec-queue/new',
-        $tmpRoot . '/runtime/exec-queue/running',
-        $tmpRoot . '/runtime/exec-queue/done',
-        $tmpRoot . '/runtime/exec-queue/failed',
-        $tmpRoot . '/runtime/exec-results',
         $tmpRoot . '/runtime/control-queue/new',
         $tmpRoot . '/runtime/control-queue/running',
         $tmpRoot . '/runtime/control-queue/done',
@@ -80,9 +70,9 @@ PHP);
         }
     }
 
-    fwrite(STDOUT, "Install setup smoke: OK\n");
+    fwrite(STDOUT, "Runtime storage layout smoke: OK\n");
     exit(0);
 } catch (Throwable $e) {
-    fwrite(STDERR, "Install setup smoke failed: {$e->getMessage()}\n");
+    fwrite(STDERR, "Runtime storage layout smoke failed: {$e->getMessage()}\n");
     exit(1);
 }

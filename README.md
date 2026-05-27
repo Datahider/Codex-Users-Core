@@ -79,7 +79,7 @@ Systemd example:
 
 ```bash
 php smoke/minimal-config-surface.php
-php smoke/install-setup.php
+php smoke/runtime-storage-layout.php
 php smoke/doctor-ready-config.php
 ```
 
