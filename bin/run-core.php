@@ -9,10 +9,22 @@ use CodexRuntime\BackgroundSupervisor;
 use CodexRuntime\Config;
 use CodexRuntime\Logger;
 use CodexRuntime\MainProcessGuard;
+use CodexRuntime\RuntimeDoctor;
+use CodexRuntime\RuntimeInstaller;
 use CodexRuntime\RuntimePaths;
+use RuntimeException;
 
 $configPath = $argv[1] ?? (__DIR__ . '/../config/config.php');
+$doctor = new RuntimeDoctor();
+$issues = $doctor->diagnose($configPath);
+if ($issues !== []) {
+    throw new RuntimeException("Runtime configuration is invalid:\n- " . implode("\n- ", $issues));
+}
+
 $config = Config::fromFile($configPath);
+$installer = new RuntimeInstaller();
+$installer->ensureEnvironment();
+$installer->ensureStorageLayout($config);
 $logger = new Logger((string) $config->get('storage', 'log_file', (new RuntimePaths($config))->logFile()));
 $guard = new MainProcessGuard($config, $logger);
 $guard->acquire();

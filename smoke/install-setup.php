@@ -5,6 +5,9 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../src/bootstrap.php';
 
+use CodexRuntime\Config;
+use CodexRuntime\RuntimeInstaller;
+
 try {
     $tmpRoot = sys_get_temp_dir() . '/codex-runtime-install-setup-' . substr(bin2hex(random_bytes(4)), 0, 8);
     $configPath = $tmpRoot . '/config.php';
@@ -33,17 +36,9 @@ PHP);
     $configSource = str_replace('__TMP__', addslashes($tmpRoot), (string) file_get_contents($configPath));
     file_put_contents($configPath, $configSource);
 
-    $setupScript = realpath(__DIR__ . '/../bin/setup.php');
-    if ($setupScript === false) {
-        throw new RuntimeException('bin/setup.php is missing');
-    }
-
-    $output = [];
-    $exitCode = 1;
-    exec(escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg($setupScript) . ' ' . escapeshellarg($configPath) . ' 2>&1', $output, $exitCode);
-    if ($exitCode !== 0) {
-        throw new RuntimeException("setup failed:\n" . implode("\n", $output));
-    }
+    $config = Config::fromFile($configPath);
+    $installer = new RuntimeInstaller();
+    $installer->ensureStorageLayout($config);
 
     $expectedPaths = [
         $tmpRoot . '/runtime',

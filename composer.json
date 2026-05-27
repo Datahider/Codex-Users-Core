@@ -9,8 +9,6 @@
         "losthost/background-process": "^1.1"
     },
     "scripts": {
-        "setup": "php bin/setup.php",
-        "doctor": "php bin/doctor.php",
         "smoke": [
             "php smoke/minimal-config-surface.php",
             "php smoke/install-setup.php",

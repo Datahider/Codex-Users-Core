@@ -41,10 +41,8 @@ Core owns:
 git clone <repo-url>
 cd Core
 composer install
-php bin/setup.php
 cp config/config.example.php config/config.php
-php bin/doctor.php config/config.php
-php bin/run-core.php config/config.php
+php bin/run-core.php
 ```
 
 ## Required config
@@ -58,28 +56,19 @@ Edit `config/config.php` and set:
 
 Default config template lives in [config/config.example.php](./config/config.example.php).
 
-## What `bin/setup.php` must do
+On startup `bin/run-core.php` does the required checks itself:
 
-- create local runtime directories under `storage.root`
-- create queue/result directories used by the workers
-- fail fast when PHP or required commands/extensions are missing
-- print the next manual step instead of trying to invent fallback behavior
-
-## What `bin/doctor.php` must validate
-
-- config file exists and is readable
-- `router.base_url` is not left as placeholder
-- `router.core_token` is not empty
-- `storage.root` is writable
-- `codex` can be resolved from `PATH`
-- `logger` can be resolved from `PATH`
+- validates `config/config.php`
+- validates `router.base_url` and `router.core_token`
+- checks PHP requirements and required commands in `PATH`
+- creates the local runtime storage layout under `storage.root`
 
 ## Start and operations
 
 Foreground run:
 
 ```bash
-php bin/run-core.php config/config.php
+php bin/run-core.php
 ```
 
 Systemd example:
