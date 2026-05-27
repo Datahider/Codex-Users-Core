@@ -141,7 +141,7 @@ final class ManagerWorker
 
         $result = $this->codex->run($prompt, $codexSessionId, $workingDir, function (string $partialText, string $latestChunk = '', bool $isProcessRunning = true) use ($outboundSessionId): void {
             if ($outboundSessionId !== 'none' && $latestChunk !== '' && $isProcessRunning) {
-                $this->sendChunkedMessages(
+                $this->sendMessage(
                     $outboundSessionId,
                     $latestChunk,
                     null,
@@ -169,7 +169,7 @@ final class ManagerWorker
             $finalText = 'Пустой ответ от Codex.';
         }
 
-        $this->sendChunkedMessages($runtimeSessionId, $finalText, null, null);
+        $this->sendMessage($runtimeSessionId, $finalText, null, null);
 
         return [
             'ok' => (($result['exit_code'] ?? 1) === 0),
@@ -207,7 +207,7 @@ final class ManagerWorker
             $this->resolveWorkingDir(null),
             function (string $partialText, string $latestChunk = '', bool $isProcessRunning = true) use ($runtimeSessionId): void {
                 if ($latestChunk !== '' && $isProcessRunning) {
-                    $this->sendChunkedMessages($runtimeSessionId, $latestChunk, null, null, true);
+                    $this->sendMessage($runtimeSessionId, $latestChunk, null, null, true);
                 }
 
                 $this->statusMessages->sendHeartbeat($runtimeSessionId);
@@ -225,7 +225,7 @@ final class ManagerWorker
             $finalText = 'Пустой ответ от Codex.';
         }
 
-        $this->sendChunkedMessages($runtimeSessionId, $finalText, null, null);
+        $this->sendMessage($runtimeSessionId, $finalText, null, null);
 
         return [
             'ok' => (($result['exit_code'] ?? 1) === 0),
@@ -427,7 +427,7 @@ TEXT;
         return trim((string) $this->config->get('codex', 'cwd', '/home/web'));
     }
 
-    private function sendChunkedMessages(
+    private function sendMessage(
         int|string $sessionId,
         string $text,
         ?int $replyToMessageId = null,
@@ -435,48 +435,14 @@ TEXT;
         bool $disableNotification = false
     ): ?int
     {
-        $chunks = $this->chunkText(
-            $text,
-            (int) $this->config->get('transport', 'message_chunk_size', 3800)
-        );
-        $lastMessageId = null;
-        foreach ($chunks as $index => $chunk) {
-            $replyTo = $index === 0 ? $replyToMessageId : null;
-            $message = $this->transport->sendMessage($sessionId, $chunk, $replyTo, $parseMode, $disableNotification);
-            $lastMessageId = isset($message['message_id']) ? (int) $message['message_id'] : $lastMessageId;
-        }
-
-        return $lastMessageId;
-    }
-
-    private function chunkText(string $text, int $chunkSize): array
-    {
-        $chunks = [];
         $text = trim($text);
         if ($text === '') {
-            return [];
+            return null;
         }
 
-        while ($text !== '') {
-            if (mb_strlen($text) <= $chunkSize) {
-                $chunks[] = $text;
-                break;
-            }
+        $message = $this->transport->sendMessage($sessionId, $text, $replyToMessageId, $parseMode, $disableNotification);
 
-            $slice = mb_substr($text, 0, $chunkSize);
-            $breakPos = mb_strrpos($slice, "\n");
-            if ($breakPos === false || $breakPos < (int) ($chunkSize * 0.5)) {
-                $breakPos = mb_strrpos($slice, ' ');
-            }
-            if ($breakPos === false || $breakPos < (int) ($chunkSize * 0.5)) {
-                $breakPos = $chunkSize;
-            }
-
-            $chunks[] = trim(mb_substr($text, 0, $breakPos));
-            $text = ltrim(mb_substr($text, $breakPos));
-        }
-
-        return $chunks;
+        return isset($message['message_id']) ? (int) $message['message_id'] : null;
     }
 
     private function markActive(array $event): void
