@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace CodexRuntime\FileQueue;
 
 use CodexRuntime\Config;
+use CodexRuntime\RuntimePaths;
 use RuntimeException;
 
 final class FileQueueLayout
@@ -13,12 +14,7 @@ final class FileQueueLayout
 
     public function __construct(Config $config)
     {
-        $root = rtrim(trim((string) $config->require('storage', 'root')), '/');
-        if ($root === '') {
-            throw new RuntimeException('storage.root must not be empty');
-        }
-
-        $this->root = $root;
+        $this->root = (new RuntimePaths($config))->root();
     }
 
     public function queuePath(string $queueName, string $state, string $id): string

@@ -176,7 +176,8 @@ final class Watcher
 
     private function acquireLock(): void
     {
-        $lockFile = (string) $this->config->require($this->section, 'lock_file');
+        $paths = new \CodexRuntime\RuntimePaths($this->config);
+        $lockFile = (string) $this->config->get($this->section, 'lock_file', $paths->workerLockFile($this->section));
         $dir = dirname($lockFile);
         if (!is_dir($dir)) {
             mkdir($dir, 0775, true);
@@ -206,7 +207,7 @@ final class Watcher
         $pidKey = $this->section === 'exec_watcher'
             ? 'exec_watcher_pid_file'
             : 'command_watcher_pid_file';
-        $pidFile = (string) $this->config->require('background', $pidKey);
+        $pidFile = (string) $this->config->get('background', $pidKey, $paths->workerPidFile($this->section));
         file_put_contents($pidFile, (string) getmypid());
         $this->logger->info(ucfirst($this->workerName) . ' lock acquired', [
             'lock_file' => $lockFile,

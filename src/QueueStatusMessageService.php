@@ -64,12 +64,12 @@ final class QueueStatusMessageService implements StatusMessageServiceInterface
 
     public function idleText(): string
     {
-        return (string) $this->config->get('manager_queue', 'idle_status_text', 'Idle');
+        return (string) $this->config->get('manager_queue', 'idle_status_text', 'Свободен');
     }
 
     public function busyText(string $taskId): string
     {
-        $template = (string) $this->config->get('manager_queue', 'busy_status_template', 'Busy: %s');
+        $template = (string) $this->config->get('manager_queue', 'busy_status_template', 'Начал выполнение задачи %s');
 
         return sprintf($template, trim($taskId));
     }

@@ -816,7 +816,8 @@ TEXT;
 
     private function acquireLock(): void
     {
-        $lockFile = (string) $this->config->require('manager_queue', 'lock_file');
+        $paths = new RuntimePaths($this->config);
+        $lockFile = (string) $this->config->get('manager_queue', 'lock_file', $paths->workerLockFile('manager_worker'));
         $dir = dirname($lockFile);
         if (!is_dir($dir)) {
             mkdir($dir, 0775, true);
@@ -836,7 +837,7 @@ TEXT;
         fflush($handle);
         $this->lockHandle = $handle;
 
-        $pidFile = (string) $this->config->require('background', 'manager_worker_pid_file');
+        $pidFile = (string) $this->config->get('background', 'manager_worker_pid_file', $paths->workerPidFile('manager_worker'));
         file_put_contents($pidFile, (string) getmypid());
     }
 }

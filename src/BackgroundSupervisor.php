@@ -18,58 +18,59 @@ final class BackgroundSupervisor
 
     public function ensureStarted(): void
     {
+        $paths = new RuntimePaths($this->config);
         if (!(bool) $this->config->get('background', 'enabled', true)) {
             return;
         }
 
         $this->ensureWorker(
             'router_ingress_worker',
-            (string) $this->config->require('background', 'router_ingress_worker_pid_file'),
+            (string) $this->config->get('background', 'router_ingress_worker_pid_file', $paths->workerPidFile('router_ingress_worker')),
             $this->workerBootstrapCode('router_ingress_worker'),
-            (string) $this->config->require('router', 'lock_file')
+            (string) $this->config->get('router', 'lock_file', $paths->workerLockFile('router_ingress_worker'))
         );
 
         $this->ensureWorker(
             'manager_worker',
-            (string) $this->config->require('background', 'manager_worker_pid_file'),
+            (string) $this->config->get('background', 'manager_worker_pid_file', $paths->workerPidFile('manager_worker')),
             $this->workerBootstrapCode('manager_worker'),
-            (string) $this->config->require('manager_queue', 'lock_file')
+            (string) $this->config->get('manager_queue', 'lock_file', $paths->workerLockFile('manager_worker'))
         );
 
         $this->ensureWorker(
             'exec_watcher',
-            (string) $this->config->require('background', 'exec_watcher_pid_file'),
+            (string) $this->config->get('background', 'exec_watcher_pid_file', $paths->workerPidFile('exec_watcher')),
             $this->workerBootstrapCode('exec_watcher'),
-            (string) $this->config->require('exec_watcher', 'lock_file')
+            (string) $this->config->get('exec_watcher', 'lock_file', $paths->workerLockFile('exec_watcher'))
         );
 
         $this->ensureWorker(
             'command_watcher',
-            (string) $this->config->require('background', 'command_watcher_pid_file'),
+            (string) $this->config->get('background', 'command_watcher_pid_file', $paths->workerPidFile('command_watcher')),
             $this->workerBootstrapCode('command_watcher'),
-            (string) $this->config->require('command_watcher', 'lock_file')
+            (string) $this->config->get('command_watcher', 'lock_file', $paths->workerLockFile('command_watcher'))
         );
 
         $this->ensureWorker(
             'control_watcher',
-            (string) $this->config->require('background', 'control_watcher_pid_file'),
+            (string) $this->config->get('background', 'control_watcher_pid_file', $paths->workerPidFile('control_watcher')),
             $this->workerBootstrapCode('control_watcher'),
-            (string) $this->config->require('control_queue', 'lock_file')
+            (string) $this->config->get('control_queue', 'lock_file', $paths->workerLockFile('control_watcher'))
         );
 
         $this->ensureWorker(
             'scheduler_worker',
-            (string) $this->config->require('background', 'scheduler_worker_pid_file'),
+            (string) $this->config->get('background', 'scheduler_worker_pid_file', $paths->workerPidFile('scheduler_worker')),
             $this->workerBootstrapCode('scheduler_worker'),
-            (string) $this->config->require('scheduled_queue', 'lock_file')
+            (string) $this->config->get('scheduled_queue', 'lock_file', $paths->workerLockFile('scheduler_worker'))
         );
 
-        if ((bool) $this->config->get('idle_watchdog', 'enabled', true)) {
+        if ((bool) $this->config->get('idle_watchdog', 'enabled', false)) {
             $this->ensureWorker(
                 'idle_watchdog',
-                (string) $this->config->get('background', 'idle_watchdog_pid_file', __DIR__ . '/../var/run/idle-watchdog.pid'),
+                (string) $this->config->get('background', 'idle_watchdog_pid_file', $paths->workerPidFile('idle_watchdog')),
                 $this->workerBootstrapCode('idle_watchdog'),
-                (string) $this->config->get('idle_watchdog', 'lock_file', __DIR__ . '/../var/run/idle-watchdog.lock')
+                (string) $this->config->get('idle_watchdog', 'lock_file', $paths->workerLockFile('idle_watchdog'))
             );
         }
     }
@@ -130,19 +131,21 @@ use CodexRuntime\Router\ApiClient;
 use CodexRuntime\Router\CurlHttpClient;
 use CodexRuntime\Router\RouterStatusMessageService;
 use CodexRuntime\Router\RouterTransportClient;
+use CodexRuntime\RuntimePaths;
 use CodexRuntime\WorkerShutdownFlag;
 $config = Config::fromFile(%s);
-$logger = new Logger((string) $config->require('storage', 'log_file'));
+$paths = new RuntimePaths($config);
+$logger = new Logger((string) $config->get('storage', 'log_file', $paths->logFile()));
 $events = new EventRepository($config);
-$stateStore = new JsonFileStore((string) $config->require('storage', 'manager_state_file'));
+$stateStore = new JsonFileStore((string) $config->get('storage', 'manager_state_file', $paths->managerStateFile()));
 $transport = new RouterTransportClient(new ApiClient(
     (string) $config->require('router', 'base_url'),
     (string) $config->require('router', 'core_token'),
     new CurlHttpClient()
 ));
 $statusMessages = new RouterStatusMessageService($config, $transport);
-$shutdown = new WorkerShutdownFlag($config, 'background', 'manager_worker_shutdown_flag_file');
-$activeTurn = new ActiveTurnRegistry(dirname((string) $config->require('storage', 'manager_state_file')) . '/active-turn.json');
+$shutdown = new WorkerShutdownFlag($config, 'background', 'manager_worker_shutdown_flag_file', $paths->workerShutdownFlagFile('manager_worker'));
+$activeTurn = new ActiveTurnRegistry($paths->activeTurnFile());
 $codex = new CodexProcess($config, $logger, $activeTurn);
 $worker = new ManagerWorker($config, $logger, $events, $stateStore, $statusMessages, $shutdown, $transport, $codex);
 $worker->run();
@@ -159,17 +162,19 @@ use CodexRuntime\Router\ApiClient;
 use CodexRuntime\Router\CoreEventSource;
 use CodexRuntime\Router\CurlHttpClient;
 use CodexRuntime\Router\RouterIngressWorker;
+use CodexRuntime\RuntimePaths;
 use CodexRuntime\WorkerShutdownFlag;
 $config = Config::fromFile(%s);
-$logger = new Logger((string) $config->require('storage', 'log_file'));
+$paths = new RuntimePaths($config);
+$logger = new Logger((string) $config->get('storage', 'log_file', $paths->logFile()));
 $source = new CoreEventSource(new ApiClient(
     (string) $config->require('router', 'base_url'),
     (string) $config->require('router', 'core_token'),
     new CurlHttpClient()
 ));
 $events = new EventRepository($config);
-$stateStore = new JsonFileStore((string) $config->require('router', 'state_file'));
-$shutdown = new WorkerShutdownFlag($config, 'background', 'router_ingress_worker_shutdown_flag_file');
+$stateStore = new JsonFileStore((string) $config->get('router', 'state_file', $paths->routerStateFile()));
+$shutdown = new WorkerShutdownFlag($config, 'background', 'router_ingress_worker_shutdown_flag_file', $paths->workerShutdownFlagFile('router_ingress_worker'));
 $worker = new RouterIngressWorker($config, $logger, $source, $events, $stateStore, $shutdown);
 $worker->run();
 PHP,
@@ -184,13 +189,15 @@ use CodexRuntime\Config;
 use CodexRuntime\Logger;
 use CodexRuntime\ManagerQueue\EventRepository;
 use CodexRuntime\ProjectsRegistry;
+use CodexRuntime\RuntimePaths;
 use CodexRuntime\WorkerShutdownFlag;
 $config = Config::fromFile(%s);
-$logger = new Logger((string) $config->require('storage', 'log_file'));
+$paths = new RuntimePaths($config);
+$logger = new Logger((string) $config->get('storage', 'log_file', $paths->logFile()));
 $jobs = new JobRepository($config, 'command');
 $runner = new CommandRunner($config, 'command_watcher');
 $projects = new ProjectsRegistry($config);
-$shutdown = new WorkerShutdownFlag($config, 'background', 'command_watcher_shutdown_flag_file');
+$shutdown = new WorkerShutdownFlag($config, 'background', 'command_watcher_shutdown_flag_file', $paths->workerShutdownFlagFile('command_watcher'));
 $managerEvents = new EventRepository($config);
 $watcher = new Watcher($config, $logger, $jobs, $runner, $projects, $shutdown, $managerEvents, 'command_watcher', 'command watcher');
 $watcher->run();
@@ -210,13 +217,15 @@ use CodexRuntime\ManagerQueue\EventRepository;
 use CodexRuntime\Router\ApiClient;
 use CodexRuntime\Router\CurlHttpClient;
 use CodexRuntime\Router\RouterTransportClient;
+use CodexRuntime\RuntimePaths;
 use CodexRuntime\TransportMessageIngress;
 use CodexRuntime\WorkerShutdownFlag;
 $config = Config::fromFile(%s);
-$logger = new Logger((string) $config->require('storage', 'log_file'));
+$paths = new RuntimePaths($config);
+$logger = new Logger((string) $config->get('storage', 'log_file', $paths->logFile()));
 $commands = new CommandRepository($config);
-$activeTurn = new ActiveTurnRegistry(dirname((string) $config->require('storage', 'manager_state_file')) . '/active-turn.json');
-$stateStore = new JsonFileStore((string) $config->require('storage', 'manager_state_file'));
+$activeTurn = new ActiveTurnRegistry($paths->activeTurnFile());
+$stateStore = new JsonFileStore((string) $config->get('storage', 'manager_state_file', $paths->managerStateFile()));
 $transport = new RouterTransportClient(new ApiClient(
     (string) $config->require('router', 'base_url'),
     (string) $config->require('router', 'core_token'),
@@ -224,7 +233,7 @@ $transport = new RouterTransportClient(new ApiClient(
 ));
 $ingress = new TransportMessageIngress(new EventRepository($config));
 $sessions = new CodexSessionCatalog();
-$shutdown = new WorkerShutdownFlag($config, 'background', 'control_watcher_shutdown_flag_file');
+$shutdown = new WorkerShutdownFlag($config, 'background', 'control_watcher_shutdown_flag_file', $paths->workerShutdownFlagFile('control_watcher'));
 $watcher = new ControlWatcher($config, $logger, $commands, $activeTurn, $stateStore, $transport, $ingress, $sessions, $shutdown);
 $watcher->run();
 PHP,
@@ -238,13 +247,15 @@ use CodexRuntime\CommandWatcher\Watcher;
 use CodexRuntime\Config;
 use CodexRuntime\Logger;
 use CodexRuntime\ProjectsRegistry;
+use CodexRuntime\RuntimePaths;
 use CodexRuntime\WorkerShutdownFlag;
 $config = Config::fromFile(%s);
-$logger = new Logger((string) $config->require('storage', 'log_file'));
+$paths = new RuntimePaths($config);
+$logger = new Logger((string) $config->get('storage', 'log_file', $paths->logFile()));
 $jobs = new JobRepository($config, 'exec');
 $runner = new CommandRunner($config, 'exec_watcher');
 $projects = new ProjectsRegistry($config);
-$shutdown = new WorkerShutdownFlag($config, 'background', 'exec_watcher_shutdown_flag_file');
+$shutdown = new WorkerShutdownFlag($config, 'background', 'exec_watcher_shutdown_flag_file', $paths->workerShutdownFlagFile('exec_watcher'));
 $watcher = new Watcher($config, $logger, $jobs, $runner, $projects, $shutdown, null, 'exec_watcher', 'exec watcher');
 $watcher->run();
 PHP,
@@ -256,15 +267,17 @@ use CodexRuntime\CommandWatcher\JobRepository;
 use CodexRuntime\Config;
 use CodexRuntime\Logger;
 use CodexRuntime\ManagerQueue\EventRepository;
+use CodexRuntime\RuntimePaths;
 use CodexRuntime\ScheduledQueue\ScheduledJobRepository;
 use CodexRuntime\SchedulerWorker;
 use CodexRuntime\WorkerShutdownFlag;
 $config = Config::fromFile(%s);
-$logger = new Logger((string) $config->require('storage', 'log_file'));
+$paths = new RuntimePaths($config);
+$logger = new Logger((string) $config->get('storage', 'log_file', $paths->logFile()));
 $scheduledJobs = new ScheduledJobRepository($config);
 $commandJobs = new JobRepository($config, 'command');
 $managerEvents = new EventRepository($config);
-$shutdown = new WorkerShutdownFlag($config, 'background', 'scheduler_worker_shutdown_flag_file');
+$shutdown = new WorkerShutdownFlag($config, 'background', 'scheduler_worker_shutdown_flag_file', $paths->workerShutdownFlagFile('scheduler_worker'));
 $worker = new SchedulerWorker($config, $logger, $scheduledJobs, $commandJobs, $managerEvents, $shutdown);
 $worker->run();
 PHP,

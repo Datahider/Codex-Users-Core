@@ -96,7 +96,8 @@ final class RouterIngressWorker
 
     private function acquireLock(): void
     {
-        $lockFile = (string) $this->config->require('router', 'lock_file');
+        $paths = new \CodexRuntime\RuntimePaths($this->config);
+        $lockFile = (string) $this->config->get('router', 'lock_file', $paths->workerLockFile('router_ingress_worker'));
         $dir = dirname($lockFile);
         if (!is_dir($dir)) {
             mkdir($dir, 0775, true);
@@ -116,7 +117,7 @@ final class RouterIngressWorker
         fwrite($handle, (string) getmypid());
         fflush($handle);
 
-        $pidFile = (string) $this->config->require('background', 'router_ingress_worker_pid_file');
+        $pidFile = (string) $this->config->get('background', 'router_ingress_worker_pid_file', $paths->workerPidFile('router_ingress_worker'));
         file_put_contents($pidFile, (string) getmypid());
     }
 }

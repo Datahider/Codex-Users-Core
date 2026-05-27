@@ -9,10 +9,11 @@ use CodexRuntime\BackgroundSupervisor;
 use CodexRuntime\Config;
 use CodexRuntime\Logger;
 use CodexRuntime\MainProcessGuard;
+use CodexRuntime\RuntimePaths;
 
 $configPath = $argv[1] ?? (__DIR__ . '/../config/config.php');
 $config = Config::fromFile($configPath);
-$logger = new Logger((string) $config->require('storage', 'log_file'));
+$logger = new Logger((string) $config->get('storage', 'log_file', (new RuntimePaths($config))->logFile()));
 $guard = new MainProcessGuard($config, $logger);
 $guard->acquire();
 $supervisor = new BackgroundSupervisor($config, $logger, $configPath);

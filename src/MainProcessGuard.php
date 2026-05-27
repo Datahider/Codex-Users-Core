@@ -20,8 +20,9 @@ final class MainProcessGuard
 
     public function acquire(): void
     {
-        $lockFile = (string) $this->config->require('background', $this->lockConfigKey);
-        $pidFile = (string) $this->config->require('background', $this->pidConfigKey);
+        $paths = new RuntimePaths($this->config);
+        $lockFile = (string) $this->config->get('background', $this->lockConfigKey, $paths->mainLockFile());
+        $pidFile = (string) $this->config->get('background', $this->pidConfigKey, $paths->mainPidFile());
 
         $lockDir = dirname($lockFile);
         if (!is_dir($lockDir)) {

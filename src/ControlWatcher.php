@@ -109,7 +109,8 @@ final class ControlWatcher
 
     private function acquireLock(): void
     {
-        $lockFile = (string) $this->config->require('control_queue', 'lock_file');
+        $paths = new RuntimePaths($this->config);
+        $lockFile = (string) $this->config->get('control_queue', 'lock_file', $paths->workerLockFile('control_watcher'));
         $dir = dirname($lockFile);
         if (!is_dir($dir)) {
             mkdir($dir, 0775, true);
@@ -129,7 +130,7 @@ final class ControlWatcher
         fwrite($handle, (string) getmypid());
         fflush($handle);
 
-        $pidFile = (string) $this->config->require('background', 'control_watcher_pid_file');
+        $pidFile = (string) $this->config->get('background', 'control_watcher_pid_file', $paths->workerPidFile('control_watcher'));
         file_put_contents($pidFile, (string) getmypid());
     }
 

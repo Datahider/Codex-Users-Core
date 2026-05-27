@@ -117,7 +117,8 @@ final class SchedulerWorker
 
     private function acquireLock(): void
     {
-        $lockFile = (string) $this->config->require('scheduled_queue', 'lock_file');
+        $paths = new RuntimePaths($this->config);
+        $lockFile = (string) $this->config->get('scheduled_queue', 'lock_file', $paths->workerLockFile('scheduler_worker'));
         $dir = dirname($lockFile);
         if (!is_dir($dir)) {
             mkdir($dir, 0775, true);
@@ -137,7 +138,7 @@ final class SchedulerWorker
         fwrite($handle, (string) getmypid());
         fflush($handle);
 
-        $pidFile = (string) $this->config->require('background', 'scheduler_worker_pid_file');
+        $pidFile = (string) $this->config->get('background', 'scheduler_worker_pid_file', $paths->workerPidFile('scheduler_worker'));
         file_put_contents($pidFile, (string) getmypid());
     }
 }

@@ -24,12 +24,13 @@ final class CodexProcess
         ?string $runtimeSessionId = null
     ): array
     {
-        $tmpDir = rtrim($this->config->storagePath('tmp_dir'), '/');
+        $paths = new RuntimePaths($this->config);
+        $tmpDir = rtrim((string) $this->config->get('storage', 'tmp_dir', $paths->tmpDir()), '/');
         if (!is_dir($tmpDir)) {
             mkdir($tmpDir, 0775, true);
         }
 
-        $debugDir = rtrim((string) $this->config->get('codex', 'debug_dir', $tmpDir . '/codex-debug'), '/');
+        $debugDir = rtrim((string) $this->config->get('codex', 'debug_dir', $paths->codexDebugDir()), '/');
         if (!is_dir($debugDir)) {
             mkdir($debugDir, 0775, true);
         }
@@ -108,7 +109,7 @@ final class CodexProcess
             $heartbeatIntervalMs = (int) $this->config->get(
                 'transport',
                 'progress_keepalive_ms',
-                $this->config->get('telegram', 'typing_keepalive_ms', 4000)
+                4000
             );
             $nextHeartbeatAt = microtime(true) + max(1, $heartbeatIntervalMs) / 1000;
 

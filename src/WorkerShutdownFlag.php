@@ -9,7 +9,8 @@ final class WorkerShutdownFlag
     public function __construct(
         private Config $config,
         private string $section,
-        private string $key
+        private string $key,
+        private ?string $defaultPath = null
     )
     {
     }
@@ -47,6 +48,6 @@ final class WorkerShutdownFlag
 
     private function flagFile(): string
     {
-        return (string) $this->config->require($this->section, $this->key);
+        return (string) $this->config->get($this->section, $this->key, $this->defaultPath);
     }
 }
