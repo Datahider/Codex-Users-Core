@@ -94,7 +94,6 @@ final class ManagerWorker
         return match ((string) ($event['type'] ?? '')) {
             'user_message' => $this->processUserMessage($event),
             'scheduled_prompt' => $this->processScheduledPrompt($event),
-            'internal_decision' => $this->processInternalDecision($event),
             'background_result' => $this->processBackgroundResult($event),
             default => [
                 'ok' => false,
@@ -238,88 +237,6 @@ final class ManagerWorker
         ];
     }
 
-    private function processInternalDecision(array $event): array
-    {
-        if ($this->isIdleWatchdogDemoEvent($event)) {
-            return $this->processIdleWatchdogDemoEvent($event);
-        }
-
-        $prompt = trim((string) ($event['prompt'] ?? ''));
-        if ($prompt === '') {
-            throw new RuntimeException('Empty prompt for internal_decision');
-        }
-
-        $state = $this->readManagerState();
-        $effectiveSessionId = $this->resolveSessionId($state, null);
-        $streamingSource = $this->internalDecisionStreamingSource($event);
-        $shouldStreamToTransport = $streamingSource !== null;
-        $notificationSessionIds = $shouldStreamToTransport ? $this->notificationSessionIds() : [];
-        $lastStreamedChunk = '';
-        $result = $this->codex->run(
-            $prompt,
-            $effectiveSessionId === 'none' ? null : $effectiveSessionId,
-            $this->resolveWorkingDir(null),
-            function (string $partialText, string $latestChunk = '', bool $isProcessRunning = true) use ($shouldStreamToTransport, $streamingSource, $notificationSessionIds, &$lastStreamedChunk): void {
-                if (!$shouldStreamToTransport || $streamingSource === null || $latestChunk === '') {
-                    return;
-                }
-
-                if (!$isProcessRunning) {
-                    return;
-                }
-
-                $lastStreamedChunk = trim($latestChunk);
-                $renderedChunk = $this->renderInternalDecisionTransportMessage($streamingSource, $latestChunk);
-                foreach ($notificationSessionIds as $sessionId) {
-                    $this->sendChunkedMessages($sessionId, $renderedChunk, null, null, true);
-                }
-            },
-            null
-        );
-
-        if (!empty($result['session_id'])) {
-            $state['session_id'] = $result['session_id'];
-            $this->stateStore->write($state);
-        }
-
-        $decisionText = trim((string) ($result['text'] ?? ''));
-        $notification = $this->parseInternalDecisionNotification($decisionText);
-        if ($streamingSource === 'idle_watchdog') {
-            $transportText = $this->resolveIdleWatchdogTransportText($decisionText, $notification);
-            if ($transportText !== '' && trim($transportText) !== $lastStreamedChunk) {
-                $renderedText = $this->renderInternalDecisionTransportMessage($streamingSource, $transportText);
-                foreach ($notificationSessionIds as $sessionId) {
-                    $this->sendChunkedMessages($sessionId, $renderedText, null, null, true);
-                }
-            }
-
-            if (!empty($notification['await_user_response'])) {
-                $this->markWaitingForUserResponse((string) ($notification['message'] ?? $decisionText));
-            }
-        }
-
-        if (!empty($notification['notify_user']) && !empty($notification['message'])) {
-            foreach ($this->notificationSessionIds() as $sessionId) {
-                $this->sendChunkedMessages($sessionId, (string) $notification['message'], null, null);
-            }
-        }
-
-        if (!empty($notification['await_user_response'])) {
-            $this->markWaitingForUserResponse((string) ($notification['message'] ?? $decisionText));
-        }
-
-        return [
-            'ok' => (($result['exit_code'] ?? 1) === 0),
-            'stdout' => $decisionText,
-            'stderr' => (string) ($result['stderr'] ?? ''),
-            'session_id' => $result['session_id'] ?? $effectiveSessionId,
-            'event_type' => 'internal_decision',
-            'notify_user' => !empty($notification['notify_user']),
-            'await_user_response' => !empty($notification['await_user_response']),
-            'notification_message' => (string) ($notification['message'] ?? ''),
-        ];
-    }
-
     private function processBackgroundResult(array $event): array
     {
         $runtimeSessionId = trim((string) ($event['session_id'] ?? ''));
@@ -406,82 +323,6 @@ final class ManagerWorker
 Исходный отложенный prompt:
 {$text}
 TEXT;
-    }
-
-    private function isIdleWatchdogDecision(array $event): bool
-    {
-        return (($event['meta']['source'] ?? null) === 'idle_watchdog');
-    }
-
-    private function internalDecisionStreamingSource(array $event): ?string
-    {
-        $source = trim((string) ($event['meta']['source'] ?? ''));
-
-        return match ($source) {
-            'idle_watchdog' => $source,
-            default => null,
-        };
-    }
-
-    private function isIdleWatchdogDemoEvent(array $event): bool
-    {
-        return $this->isIdleWatchdogDecision($event) && trim((string) ($event['meta']['idle_watchdog_demo_text'] ?? '')) !== '';
-    }
-
-    private function processIdleWatchdogDemoEvent(array $event): array
-    {
-        $demoText = trim((string) ($event['meta']['idle_watchdog_demo_text'] ?? ''));
-        $renderedText = $this->renderInternalDecisionTransportMessage('idle_watchdog', $demoText);
-        foreach ($this->notificationSessionIds() as $sessionId) {
-            $this->sendChunkedMessages($sessionId, $renderedText, null, null, true);
-        }
-
-        return [
-            'ok' => true,
-            'stdout' => $demoText,
-            'stderr' => '',
-            'session_id' => 'none',
-            'event_type' => 'internal_decision',
-            'notify_user' => false,
-            'await_user_response' => false,
-            'notification_message' => '',
-        ];
-    }
-
-    /**
-     * @param array{notify_user: bool, message: string, await_user_response: bool} $notification
-     */
-    private function resolveIdleWatchdogTransportText(string $decisionText, array $notification): string
-    {
-        $decisionText = trim($decisionText);
-        if ($decisionText === '') {
-            return '';
-        }
-
-        $decoded = json_decode($decisionText, true);
-        if (is_array($decoded)) {
-            return trim((string) ($notification['message'] ?? ''));
-        }
-
-        $message = trim((string) ($notification['message'] ?? ''));
-
-        return $message !== '' ? $message : $decisionText;
-    }
-
-    private function renderInternalDecisionTransportMessage(string $source, string $text): string
-    {
-        $text = trim($text);
-        if ($text === '') {
-            return '';
-        }
-
-        $prefix = match ($source) {
-            'idle_watchdog' => trim((string) $this->config->get('idle_watchdog', 'transport_prefix', '⚙️')),
-            default => '',
-        };
-        $payload = $prefix !== '' ? ($prefix . ' ' . $text) : $text;
-
-        return $payload;
     }
 
     private function buildUserPrompt(string $runtimeSessionId, string $userText, ?string $sessionId): string
@@ -581,22 +422,6 @@ TEXT;
         return $codexSessionId !== '' ? $codexSessionId : null;
     }
 
-    private function resolveSessionId(array $state, int|string|null $chatId): string
-    {
-        $sessionId = '';
-        $sessionId = trim((string) ($state['session_id'] ?? ''));
-        if ($sessionId !== '') {
-            return $sessionId;
-        }
-
-        $initial = trim((string) $this->config->get('codex', 'initial_session_id', ''));
-        if ($initial !== '') {
-            return $initial;
-        }
-
-        return 'none';
-    }
-
     private function resolveWorkingDir(int|string|null $chatId): string
     {
         return trim((string) $this->config->get('codex', 'cwd', '/home/web'));
@@ -689,102 +514,12 @@ TEXT;
 
         return [
             'sessions' => is_array($state['sessions'] ?? null) ? $state['sessions'] : [],
-            'session_id' => (string) ($state['session_id'] ?? ''),
             'active_task_id' => isset($state['active_task_id']) ? (string) $state['active_task_id'] : null,
             'active_type' => isset($state['active_type']) ? (string) $state['active_type'] : null,
             'active_priority' => isset($state['active_priority']) ? (int) $state['active_priority'] : null,
             'active_started_at' => isset($state['active_started_at']) ? (string) $state['active_started_at'] : null,
             'active_session_id' => isset($state['active_session_id']) ? (string) $state['active_session_id'] : null,
-            'waiting_for_user_response' => !empty($state['waiting_for_user_response']),
-            'waiting_for_user_response_at' => isset($state['waiting_for_user_response_at']) ? (string) $state['waiting_for_user_response_at'] : null,
-            'waiting_for_user_response_message' => isset($state['waiting_for_user_response_message']) ? (string) $state['waiting_for_user_response_message'] : null,
         ];
-    }
-
-    private function markWaitingForUserResponse(string $message): void
-    {
-        $state = $this->readManagerState();
-        $state['waiting_for_user_response'] = true;
-        $state['waiting_for_user_response_at'] = date(DATE_ATOM);
-        $state['waiting_for_user_response_message'] = $message;
-        $this->stateStore->write($state);
-    }
-
-    /**
-     * @return array{notify_user: bool, message: string, await_user_response: bool}
-     */
-    private function parseInternalDecisionNotification(string $text): array
-    {
-        $text = trim($text);
-        if ($text === '') {
-            return ['notify_user' => false, 'message' => '', 'await_user_response' => false];
-        }
-
-        $decoded = $this->extractInternalDecisionJsonPayload($text);
-        if (is_array($decoded)) {
-            return [
-                'notify_user' => !empty($decoded['notify_user']),
-                'message' => trim((string) ($decoded['message'] ?? '')),
-                'await_user_response' => !empty($decoded['await_user_response']),
-            ];
-        }
-
-        return [
-            'notify_user' => str_contains($text, '?'),
-            'message' => $text,
-            'await_user_response' => false,
-        ];
-    }
-
-    private function extractInternalDecisionJsonPayload(string $text): ?array
-    {
-        $decoded = json_decode($text, true);
-        if (is_array($decoded)) {
-            return $decoded;
-        }
-
-        $length = strlen($text);
-        for ($offset = $length - 1; $offset >= 0; $offset--) {
-            if ($text[$offset] !== '{') {
-                continue;
-            }
-
-            $candidate = trim(substr($text, $offset));
-            if ($candidate === '') {
-                continue;
-            }
-
-            $decoded = json_decode($candidate, true);
-            if (!is_array($decoded)) {
-                continue;
-            }
-
-            if (!array_key_exists('notify_user', $decoded) && !array_key_exists('message', $decoded) && !array_key_exists('await_user_response', $decoded)) {
-                continue;
-            }
-
-            return $decoded;
-        }
-
-        return null;
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function notificationSessionIds(): array
-    {
-        $state = $this->stateStore->read();
-        $sessionIds = [];
-
-        foreach ((array) ($state['sessions'] ?? []) as $sessionId => $route) {
-            if ($sessionId === '') {
-                continue;
-            }
-            $sessionIds[] = (string) $sessionId;
-        }
-
-        return array_values(array_unique(array_filter($sessionIds, static fn (string $sessionId): bool => $sessionId !== '')));
     }
 
     private function rememberSessionRoute(

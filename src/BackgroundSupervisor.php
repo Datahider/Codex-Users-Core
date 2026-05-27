@@ -65,14 +65,6 @@ final class BackgroundSupervisor
             (string) $this->config->get('scheduled_queue', 'lock_file', $paths->workerLockFile('scheduler_worker'))
         );
 
-        if ((bool) $this->config->get('idle_watchdog', 'enabled', false)) {
-            $this->ensureWorker(
-                'idle_watchdog',
-                (string) $this->config->get('background', 'idle_watchdog_pid_file', $paths->workerPidFile('idle_watchdog')),
-                $this->workerBootstrapCode('idle_watchdog'),
-                (string) $this->config->get('idle_watchdog', 'lock_file', $paths->workerLockFile('idle_watchdog'))
-            );
-        }
     }
 
     private function ensureWorker(string $name, string $pidFile, string $bootstrapCode, ?string $lockFile = null): void
@@ -279,27 +271,6 @@ $commandJobs = new JobRepository($config, 'command');
 $managerEvents = new EventRepository($config);
 $shutdown = new WorkerShutdownFlag($config, 'background', 'scheduler_worker_shutdown_flag_file', $paths->workerShutdownFlagFile('scheduler_worker'));
 $worker = new SchedulerWorker($config, $logger, $scheduledJobs, $commandJobs, $managerEvents, $shutdown);
-$worker->run();
-PHP,
-            'idle_watchdog' => <<<'PHP'
-<?php
-chdir(%s);
-require %s;
-use CodexRuntime\Config;
-use CodexRuntime\IdleWatchdogWorker;
-use CodexRuntime\JsonFileStore;
-use CodexRuntime\Logger;
-use CodexRuntime\ManagerQueue\EventRepository;
-use CodexRuntime\ProjectsRegistry;
-use CodexRuntime\WorkerShutdownFlag;
-$config = Config::fromFile(%s);
-$logger = new Logger((string) $config->require('storage', 'log_file'));
-$managerEvents = new EventRepository($config);
-$managerState = new JsonFileStore((string) $config->require('storage', 'manager_state_file'));
-$state = new JsonFileStore((string) $config->get('idle_watchdog', 'state_file', __DIR__ . '/../var/state/idle-watchdog-state.json'));
-$projects = new ProjectsRegistry($config);
-$shutdown = new WorkerShutdownFlag($config, 'background', 'idle_watchdog_shutdown_flag_file');
-$worker = new IdleWatchdogWorker($config, $logger, $managerEvents, $managerState, $state, $projects, $shutdown);
 $worker->run();
 PHP,
             default => throw new RuntimeException("Unknown worker {$worker}"),
