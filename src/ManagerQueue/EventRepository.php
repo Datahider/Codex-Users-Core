@@ -6,6 +6,7 @@ namespace CodexRuntime\ManagerQueue;
 
 use CodexRuntime\Config;
 use CodexRuntime\FileQueue\FileQueueLayout;
+use CodexRuntime\TimestampId;
 use RuntimeException;
 
 final class EventRepository
@@ -19,7 +20,7 @@ final class EventRepository
 
     public function enqueue(array $event): string
     {
-        $id = $event['id'] ?? (date('Ymd-His') . '-' . substr(bin2hex(random_bytes(4)), 0, 8));
+        $id = $event['id'] ?? TimestampId::next();
         $event['id'] = $id;
         $event['created_at'] = $event['created_at'] ?? date(DATE_ATOM);
         $event['priority'] = (int) ($event['priority'] ?? 50);

@@ -31,7 +31,7 @@ try {
     }
 
     assertSame('https://router.example/api/v1/core/events?after_id=500&wait=0&limit=1', $http->url, 'poll URL');
-    assertSame('router:501', $event['id'] ?? null, 'event id');
+    assertSame(null, $event['id'] ?? null, 'event id');
     assertSame(501, $event['router_event_id'] ?? null, 'router event id');
     assertSame('user_message', $event['type'] ?? null, 'mapped type');
     assertSame('runtime-42', $event['session_id'] ?? null, 'runtime session id');

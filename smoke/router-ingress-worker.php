@@ -70,7 +70,6 @@ PHP);
             $this->limit = $limit;
 
             return [
-                'id' => 'router:501',
                 'router_event_id' => 501,
                 'type' => 'user_message',
                 'priority' => 50,

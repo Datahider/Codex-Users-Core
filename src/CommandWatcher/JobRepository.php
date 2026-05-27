@@ -6,6 +6,7 @@ namespace CodexRuntime\CommandWatcher;
 
 use CodexRuntime\Config;
 use CodexRuntime\FileQueue\FileQueueLayout;
+use CodexRuntime\TimestampId;
 use RuntimeException;
 
 final class JobRepository
@@ -27,7 +28,7 @@ final class JobRepository
             throw new RuntimeException('Job project is required');
         }
 
-        $id = $job['id'] ?? (date('Ymd-His') . '-' . substr(bin2hex(random_bytes(4)), 0, 8));
+        $id = $job['id'] ?? TimestampId::next();
         $job['project'] = $project;
         $job['id'] = $id;
         $job['created_at'] = $job['created_at'] ?? date(DATE_ATOM);

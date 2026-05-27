@@ -6,6 +6,7 @@ namespace CodexRuntime\ControlQueue;
 
 use CodexRuntime\Config;
 use CodexRuntime\FileQueue\FileQueueLayout;
+use CodexRuntime\TimestampId;
 use RuntimeException;
 
 final class CommandRepository
@@ -23,7 +24,7 @@ final class CommandRepository
      */
     public function enqueue(array $command): string
     {
-        $id = $command['id'] ?? (date('Ymd-His') . '-' . substr(bin2hex(random_bytes(4)), 0, 8));
+        $id = $command['id'] ?? TimestampId::next();
         $command['id'] = $id;
         $command['created_at'] = $command['created_at'] ?? date(DATE_ATOM);
 

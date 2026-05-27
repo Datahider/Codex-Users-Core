@@ -42,7 +42,6 @@ final class CoreEventSource implements CoreEventSourceInterface
         }
 
         return [
-            'id' => 'router:' . (string) ($event['event_id'] ?? ''),
             'router_event_id' => (int) ($event['event_id'] ?? 0),
             'type' => 'user_message',
             'priority' => 50,
