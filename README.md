@@ -39,24 +39,33 @@
 git clone <repo-url>
 cd Core
 composer install
-cp config/config.example.php config/config.php
+mkdir -p ~/.codex-users-core
+cp config/config.example.php ~/.codex-users-core/config.php
 php bin/run-core.php
 ```
 
 ## Обязательная настройка
 
-В `config/config.php` нужно задать:
+По умолчанию `php bin/run-core.php` ищет конфиг в:
+
+```text
+~/.codex-users-core/config.php
+```
+
+Если нужно, путь к конфигу можно передать первым аргументом.
+
+В конфиге нужно задать:
 
 - `router.base_url`
 - `router.core_token`
-- `storage.root`, если не подходит значение по умолчанию `./var`
+- `storage.root`, если не подходит значение по умолчанию `~/.codex-users-core/var`
 - `codex.cwd`, если `codex` должен запускаться из другого каталога
 
 Шаблон конфига лежит в [config/config.example.php](./config/config.example.php).
 
 При старте `bin/run-core.php` сам:
 
-- проверяет наличие и читаемость `config/config.php`
+- проверяет наличие и читаемость конфига
 - валидирует `router.base_url` и `router.core_token`
 - проверяет PHP-зависимости и нужные команды в `PATH`
 - создает локальную runtime-структуру каталогов под `storage.root`

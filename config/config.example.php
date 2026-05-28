@@ -3,7 +3,7 @@
 return [
     'codex' => [
         'bin' => 'codex',
-        'cwd' => __DIR__ . '/..',
+        'cwd' => getenv('HOME') ?: __DIR__,
         'extra_args' => [
             '--skip-git-repo-check',
             '--json',
@@ -14,6 +14,6 @@ return [
         'core_token' => '',
     ],
     'storage' => [
-        'root' => __DIR__ . '/../var',
+        'root' => __DIR__ . '/var',
     ],
 ];

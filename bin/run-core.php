@@ -7,14 +7,14 @@ require __DIR__ . '/../src/bootstrap.php';
 
 use CodexRuntime\BackgroundSupervisor;
 use CodexRuntime\Config;
+use CodexRuntime\ConfigPathResolver;
 use CodexRuntime\Logger;
 use CodexRuntime\MainProcessGuard;
 use CodexRuntime\RuntimeDoctor;
 use CodexRuntime\RuntimeInstaller;
 use CodexRuntime\RuntimePaths;
-use RuntimeException;
 
-$configPath = $argv[1] ?? (__DIR__ . '/../config/config.php');
+$configPath = ConfigPathResolver::resolve($argv, __DIR__);
 $doctor = new RuntimeDoctor();
 $issues = $doctor->diagnose($configPath);
 if ($issues !== []) {

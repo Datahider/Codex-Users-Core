@@ -10,6 +10,7 @@
     },
     "scripts": {
         "smoke": [
+            "php smoke/default-config-resolution.php",
             "php smoke/minimal-config-surface.php",
             "php smoke/runtime-storage-layout.php",
             "php smoke/doctor-ready-config.php"
