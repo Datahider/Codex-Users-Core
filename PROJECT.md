@@ -1,19 +1,19 @@
 # PROJECT
 
-## Name
+## Название
 
-codex-runtime
+`codex-runtime`
 
-## Status
+## Статус
 
-active
+Активный.
 
-## Purpose
+## Назначение
 
-Transport-agnostic runtime core for Codex-based operator bots.
+Ядро рантайма для Codex-ботов, работающее через `Router`.
 
-## Current Focus
+## Текущий фокус
 
-- keep queues/workers/orchestration outside Telegram-specific code;
-- prepare clean contracts for a MAX transport;
-- keep the old Telegram bot as one transport implementation until MAX is proven.
+- держать core-логику отдельно от transport-слоя
+- поддерживать очереди, воркеры и session-контракты ядра
+- держать установку и запуск проекта простыми и переносимыми

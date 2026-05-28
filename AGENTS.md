@@ -4,7 +4,7 @@
 
 - `Core` — это runtime-ядро для обработки входящих событий через `codex`.
 - Ядро однопользовательское.
-- Transport-specific реализация в `Core` не живёт. Допустим только внешний интерфейс с `Router`.
+- Внутри `Core` допустима только граница с `Router`.
 
 ## Текущее состояние
 
@@ -34,7 +34,7 @@
 - `Router` ingress worker
 - `Router` outbound/status client
 - `HTTP`/auth contract этого boundary
-- Если изменение относится к transport presentation, transport state, transport message ids, polling/webhook logic или transport-командам, оно уходит в transport-репозиторий или внешний слой над `Router`.
+- Если изменение относится к presentation, transport state, message ids или transport-логике вне самого `Router` boundary, оно не должно жить в `Core`.
 
 ## Правила изменений
 

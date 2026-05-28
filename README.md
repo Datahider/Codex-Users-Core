@@ -1,39 +1,39 @@
 # Codex Runtime Core
 
-`codex-runtime` is the transport-agnostic core for Codex-based operator bots.
+`codex-runtime` — это ядро рантайма для Codex-ботов, работающее через `Router`.
 
-## What this repository does
+## Что делает репозиторий
 
-- pulls inbound events from Router
-- queues and processes runtime jobs
-- runs `codex`
-- stores runtime state on local disk
-- starts and keeps background workers alive
+- забирает входящие события из `Router`
+- ставит runtime-задачи в очереди и обрабатывает их
+- запускает `codex`
+- хранит состояние рантайма на локальном диске
+- поднимает и удерживает фоновые воркеры
 
-## Scope
+## Зона ответственности
 
-Core owns:
+Ядро отвечает за:
 
-- Router ingress consumption
-- manager queue processing
-- Codex execution
-- `runtime_session_id -> codex_session_id`
-- control commands such as stop/reset/session
-- scheduled prompts released into manager queue
-- outbound semantic messages for the transport boundary
+- чтение входящих событий из `Router`
+- обработку `manager-queue`
+- запуск `codex`
+- связь `runtime_session_id -> codex_session_id`
+- команды управления вроде `/stop`, `/reset`, `/session`
+- выпуск отложенных задач в `manager-queue`
+- исходящие семантические payload'ы для границы с транспортом
 
-## Requirements
+## Требования
 
 - Linux
-- PHP 8.1 or newer
-- PHP `curl` extension
+- PHP 8.1 или новее
+- PHP-расширение `curl`
 - `composer`
-- `codex` in `PATH`
-- `logger` in `PATH`
-- a reachable Router instance
-- a valid Router core token
+- `codex` в `PATH`
+- `logger` в `PATH`
+- доступный экземпляр `Router`
+- валидный `Router` core token
 
-## Quick install
+## Быстрая установка
 
 ```bash
 git clone <repo-url>
@@ -43,37 +43,37 @@ cp config/config.example.php config/config.php
 php bin/run-core.php
 ```
 
-## Required config
+## Обязательная настройка
 
-Edit `config/config.php` and set:
+В `config/config.php` нужно задать:
 
 - `router.base_url`
 - `router.core_token`
-- `storage.root` if you do not want the default `./var`
-- `codex.cwd` if `codex` must run from another directory
+- `storage.root`, если не подходит значение по умолчанию `./var`
+- `codex.cwd`, если `codex` должен запускаться из другого каталога
 
-Default config template lives in [config/config.example.php](./config/config.example.php).
+Шаблон конфига лежит в [config/config.example.php](./config/config.example.php).
 
-On startup `bin/run-core.php` does the required checks itself:
+При старте `bin/run-core.php` сам:
 
-- validates `config/config.php`
-- validates `router.base_url` and `router.core_token`
-- checks PHP requirements and required commands in `PATH`
-- creates the local runtime storage layout under `storage.root`
+- проверяет наличие и читаемость `config/config.php`
+- валидирует `router.base_url` и `router.core_token`
+- проверяет PHP-зависимости и нужные команды в `PATH`
+- создает локальную runtime-структуру каталогов под `storage.root`
 
-## Start and operations
+## Запуск
 
-Foreground run:
+В foreground:
 
 ```bash
 php bin/run-core.php
 ```
 
-Systemd example:
+Пример unit-файла для `systemd`:
 
-- unit file: [systemd/codex-runtime-core.service](./systemd/codex-runtime-core.service)
+- [systemd/codex-runtime-core.service](./systemd/codex-runtime-core.service)
 
-## Smoke checks
+## Smoke-проверки
 
 ```bash
 php smoke/minimal-config-surface.php
@@ -83,26 +83,26 @@ php smoke/doctor-ready-config.php
 
 ## Runtime layout
 
-- queues, logs, state and pid files live under `storage.root`
-- default storage root is `./var`
-- core state lives in `var/state`
-- worker locks and pid files live in `var/run`
-- core-owned queues are:
+- очереди, логи, state и pid-файлы живут под `storage.root`
+- `storage.root` по умолчанию — `./var`
+- состояние ядра лежит в `var/state`
+- lock-файлы и pid-файлы воркеров лежат в `var/run`
+- очереди ядра:
   - `manager-queue`
   - `outbound-queue`
   - `control-queue`
   - `scheduled-queue`
 
-## Queue boundary
+## Граница исходящих сообщений
 
-Core may emit only semantic outbound payloads:
+Ядро может выпускать только такие outbound payload'ы:
 
 - `message`
 - `heartbeat`
 - `status`
 
-Transport code decides how those payloads are rendered and delivered.
+Как именно они рендерятся и доставляются, решает внешний transport-слой.
 
-## Boundaries
+## Границы проекта
 
-- project scope: [PROJECT.md](./PROJECT.md)
+- краткое описание проекта: [PROJECT.md](./PROJECT.md)
