@@ -58,8 +58,13 @@ php bin/run-core.php
 
 - `router.base_url`
 - `router.core_token`
-- `storage.root`, если не подходит значение по умолчанию `~/.codex-users-core/var`
 - `codex.cwd`, если `codex` должен запускаться из другого каталога
+
+`storage.root` менять не обязательно. По умолчанию он равен:
+
+```text
+~/.codex-users-core/var
+```
 
 Шаблон конфига лежит в [config/config.example.php](./config/config.example.php).
 
@@ -93,7 +98,7 @@ php smoke/doctor-ready-config.php
 ## Runtime layout
 
 - очереди, логи, state и pid-файлы живут под `storage.root`
-- `storage.root` по умолчанию — `./var`
+- `storage.root` по умолчанию — `~/.codex-users-core/var`
 - состояние ядра лежит в `var/state`
 - lock-файлы и pid-файлы воркеров лежат в `var/run`
 - очереди ядра:
