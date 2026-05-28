@@ -27,14 +27,14 @@
 - `BackgroundSupervisor` — поднимает и удерживает фоновые воркеры
 - файловые очереди, lock-файлы, state и runtime-логи под `var/`
 
-## Чего здесь нет
+## Граница проекта
 
-Внутри `Core` не должно быть:
+`Core` отвечает за путь от входящего события `Router` до запуска `codex` и формирования outbound payload.
 
-- transport UI
-- transport-specific message formatting
-- transport-specific message ids и transport state
-- polling/webhook-кода конкретного мессенджера
+На входе граница проекта — это события из `Router`.
+На выходе граница проекта — это outbound payload, который забирает внешний transport-слой.
+
+Все, что связано с доставкой сообщений пользователю, transport-представлением и transport-state, лежит уже за этой границей.
 
 ## Текущий статус
 
