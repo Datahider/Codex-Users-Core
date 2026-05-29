@@ -83,8 +83,13 @@ final class RuntimeDoctor
         }
 
         $parent = dirname($storageRoot);
-        if (!is_dir($parent)) {
-            return ["storage.root parent directory does not exist: {$parent}"];
+        while (!is_dir($parent)) {
+            $nextParent = dirname($parent);
+            if ($nextParent === $parent) {
+                return ["storage.root cannot be created: no writable existing parent for {$storageRoot}"];
+            }
+
+            $parent = $nextParent;
         }
 
         if (!is_writable($parent)) {

@@ -9,11 +9,11 @@ use CodexRuntime\RuntimeDoctor;
 
 try {
     $tmpRoot = sys_get_temp_dir() . '/codex-runtime-doctor-ready-' . substr(bin2hex(random_bytes(4)), 0, 8);
-    $storageRoot = $tmpRoot . '/runtime';
+    $storageRoot = $tmpRoot . '/var/codex-users-core';
     $configPath = $tmpRoot . '/config.php';
 
-    if (!mkdir($storageRoot, 0775, true) && !is_dir($storageRoot)) {
-        throw new \RuntimeException("Cannot create storage root {$storageRoot}");
+    if (!mkdir($tmpRoot, 0775, true) && !is_dir($tmpRoot)) {
+        throw new \RuntimeException("Cannot create temp root {$tmpRoot}");
     }
 
     file_put_contents($configPath, <<<'PHP'
