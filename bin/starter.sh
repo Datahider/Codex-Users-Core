@@ -25,11 +25,6 @@ DEFAULT_PROJECT="$RUNTIME_ROOT"
 TIMEOUT_SECONDS="${CODEX_STARTER_TIMEOUT_SECONDS:-3600}"
 
 resolve_config_path() {
-  if [[ -n "${CODEX_CONFIG_PATH:-}" ]]; then
-    printf '%s\n' "$CODEX_CONFIG_PATH"
-    return 0
-  fi
-
   if [[ -n "$HOME_DIR" && -f "$HOME_DIR/.codex-users-core/config.php" ]]; then
     printf '%s\n' "$HOME_DIR/.codex-users-core/config.php"
     return 0
@@ -73,8 +68,13 @@ extract_storage_root() {
 }
 
 initialize_runtime_layout() {
-  CONFIG_PATH="$(resolve_config_path)"
-  STORAGE_ROOT="$(extract_storage_root "$CONFIG_PATH")"
+  if [[ -n "${CODEX_STORAGE_ROOT:-}" ]]; then
+    STORAGE_ROOT="$CODEX_STORAGE_ROOT"
+  else
+    CONFIG_PATH="$(resolve_config_path)"
+    STORAGE_ROOT="$(extract_storage_root "$CONFIG_PATH")"
+  fi
+
   QUEUE_DIR="$STORAGE_ROOT/exec-queue/new"
   COMMAND_QUEUE_DIR="$STORAGE_ROOT/command-queue/new"
   COMMAND_RESULTS_DIR="$STORAGE_ROOT/command-results"

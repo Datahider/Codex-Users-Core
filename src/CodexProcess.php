@@ -382,6 +382,8 @@ final class CodexProcess
             $env['RUNTIME_SID'] = $runtimeSessionId;
         }
 
+        $env['CODEX_STORAGE_ROOT'] = (new RuntimePaths($this->config))->root();
+
         return $env;
     }
 }
