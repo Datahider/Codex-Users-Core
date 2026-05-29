@@ -12,20 +12,84 @@ fi
 
 SELF_PATH="$(readlink -f "${BASH_SOURCE[0]}")"
 RUNTIME_ROOT="$(cd "$(dirname "$SELF_PATH")/.." && pwd)"
-QUEUE_DIR="$RUNTIME_ROOT/var/exec-queue/new"
-COMMAND_QUEUE_DIR="$RUNTIME_ROOT/var/command-queue/new"
-COMMAND_RESULTS_DIR="$RUNTIME_ROOT/var/command-results"
-SCHEDULED_QUEUE_DIR="$RUNTIME_ROOT/var/scheduled-queue"
-RESULTS_DIR="$RUNTIME_ROOT/var/exec-results"
-MANAGED_PROCESSES_DIR="$RUNTIME_ROOT/var/managed-processes"
+HOME_DIR="${HOME:-}"
+CONFIG_PATH=""
+STORAGE_ROOT=""
+QUEUE_DIR=""
+COMMAND_QUEUE_DIR=""
+COMMAND_RESULTS_DIR=""
+SCHEDULED_QUEUE_DIR=""
+RESULTS_DIR=""
+MANAGED_PROCESSES_DIR=""
 DEFAULT_PROJECT="$RUNTIME_ROOT"
 TIMEOUT_SECONDS="${CODEX_STARTER_TIMEOUT_SECONDS:-3600}"
 
-mkdir -p "$QUEUE_DIR" "$RESULTS_DIR"
-mkdir -p "$COMMAND_QUEUE_DIR"
-mkdir -p "$COMMAND_RESULTS_DIR"
-mkdir -p "$SCHEDULED_QUEUE_DIR"
-mkdir -p "$MANAGED_PROCESSES_DIR"
+resolve_config_path() {
+  if [[ -n "${CODEX_CONFIG_PATH:-}" ]]; then
+    printf '%s\n' "$CODEX_CONFIG_PATH"
+    return 0
+  fi
+
+  if [[ -n "$HOME_DIR" && -f "$HOME_DIR/.codex-users-core/config.php" ]]; then
+    printf '%s\n' "$HOME_DIR/.codex-users-core/config.php"
+    return 0
+  fi
+
+  printf '%s\n' "$RUNTIME_ROOT/config/config.php"
+}
+
+extract_storage_root() {
+  local config_path line config_dir suffix
+  local quoted_root_pattern dir_root_pattern
+  config_path="$1"
+  quoted_root_pattern="[\"']root[\"'][[:space:]]*=>[[:space:]]*[\"']([^\"']+)[\"']"
+  dir_root_pattern="[\"']root[\"'][[:space:]]*=>[[:space:]]*__DIR__[[:space:]]*\\.[[:space:]]*[\"']([^\"']+)[\"']"
+
+  if [[ ! -f "$config_path" ]]; then
+    echo "starter config file not found: $config_path" >&2
+    exit 1
+  fi
+
+  line="$(grep -m1 -E "['\"]root['\"][[:space:]]*=>" "$config_path" || true)"
+  if [[ -z "$line" ]]; then
+    echo "starter failed to find storage.root in config: $config_path" >&2
+    exit 1
+  fi
+
+  if [[ "$line" =~ $quoted_root_pattern ]]; then
+    printf '%s\n' "${BASH_REMATCH[1]}"
+    return 0
+  fi
+
+  if [[ "$line" =~ $dir_root_pattern ]]; then
+    config_dir="$(cd "$(dirname "$config_path")" && pwd)"
+    suffix="${BASH_REMATCH[1]}"
+    printf '%s\n' "${config_dir}${suffix}"
+    return 0
+  fi
+
+  echo "starter failed to parse storage.root from config: $config_path" >&2
+  exit 1
+}
+
+initialize_runtime_layout() {
+  CONFIG_PATH="$(resolve_config_path)"
+  STORAGE_ROOT="$(extract_storage_root "$CONFIG_PATH")"
+  QUEUE_DIR="$STORAGE_ROOT/exec-queue/new"
+  COMMAND_QUEUE_DIR="$STORAGE_ROOT/command-queue/new"
+  COMMAND_RESULTS_DIR="$STORAGE_ROOT/command-results"
+  SCHEDULED_QUEUE_DIR="$STORAGE_ROOT/scheduled-queue"
+  RESULTS_DIR="$STORAGE_ROOT/exec-results"
+  MANAGED_PROCESSES_DIR="$STORAGE_ROOT/managed-processes"
+
+  mkdir -p "$QUEUE_DIR" "$RESULTS_DIR"
+  mkdir -p "$COMMAND_QUEUE_DIR"
+  mkdir -p "$COMMAND_RESULTS_DIR"
+  mkdir -p "$SCHEDULED_QUEUE_DIR"
+  mkdir -p "$MANAGED_PROCESSES_DIR"
+}
+
+initialize_runtime_layout
 
 log() {
   local timestamp line log_dir

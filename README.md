@@ -75,6 +75,8 @@ php bin/run-core.php
 - проверяет PHP-зависимости и нужные команды в `PATH`
 - создает локальную runtime-структуру каталогов под `storage.root`
 
+Shim-команды из `bin/shims` берут `storage.root` из того же конфига.
+
 ## Запуск
 
 В foreground:
