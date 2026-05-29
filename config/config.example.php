@@ -18,9 +18,9 @@ return [
         'core_token' => '',
     ],
     'storage' => [
-        // По умолчанию runtime-данные лежат рядом с конфигом:
-        // ~/.codex-users-core/var
+        // По умолчанию runtime-данные лежат вне каталога с точкой:
+        // ~/var/codex-users-core
         // Переопредели, только если данные должны жить в другом месте.
-        'root' => __DIR__ . '/var',
+        'root' => $home . '/var/codex-users-core',
     ],
 ];
