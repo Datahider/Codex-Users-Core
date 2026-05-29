@@ -14,7 +14,7 @@ return [
         ],
     ],
     'router' => [
-        'base_url' => 'https://cdx-router.example',
+        'base_url' => 'https://cdx-router.botmeister.ru',
         'core_token' => '',
     ],
     'storage' => [
