@@ -119,6 +119,12 @@ php smoke/doctor-ready-config.php
 
 Как именно они рендерятся и доставляются, решает внешний transport-слой.
 
+Для `ManagerWorker` это значит следующее:
+
+- `user_message`, `scheduled_prompt` и `background_result` во время `codex->run(...)` стримят промежуточные commentary-чанки как outbound `message`
+- после завершения каждого такого turn финальный текст уходит отдельным outbound `message`
+- для `background_result` отличается только prompt-builder и текст fallback-ответа при пустом результате
+
 ## Границы проекта
 
 - краткое описание проекта: [PROJECT.md](./PROJECT.md)

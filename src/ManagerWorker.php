@@ -247,24 +247,21 @@ final class ManagerWorker
         $codexSessionId = trim((string) ($event['codex_session_id'] ?? ''));
         $jobId = trim((string) ($event['job_id'] ?? ''));
         $prompt = $this->buildBackgroundResultPrompt($event);
-        $commentaryReplyTo = null;
-
         $this->statusMessages->sendHeartbeat($runtimeSessionId);
 
         $result = $this->codex->run(
             $prompt,
             $codexSessionId !== '' ? $codexSessionId : null,
             $this->resolveWorkingDir(null),
-            function (string $partialText, string $latestChunk = '', bool $isProcessRunning = true) use (&$commentaryReplyTo, $runtimeSessionId): void {
+            function (string $partialText, string $latestChunk = '', bool $isProcessRunning = true) use ($runtimeSessionId): void {
                 if ($latestChunk !== '' && $isProcessRunning) {
-                    $this->sendChunkedMessages(
+                    $this->sendMessage(
                         $runtimeSessionId,
                         $latestChunk,
-                        $commentaryReplyTo,
+                        null,
                         null,
                         true
                     );
-                    $commentaryReplyTo = null;
                 }
 
                 $this->statusMessages->sendHeartbeat($runtimeSessionId);
@@ -286,7 +283,7 @@ final class ManagerWorker
             );
         }
 
-        $this->sendChunkedMessages($runtimeSessionId, $finalText, null, null);
+        $this->sendMessage($runtimeSessionId, $finalText, null, null);
 
         return [
             'ok' => (($result['exit_code'] ?? 1) === 0),
