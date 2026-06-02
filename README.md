@@ -105,7 +105,6 @@ php smoke/doctor-ready-config.php
 - lock-файлы и pid-файлы воркеров лежат в `var/run`
 - очереди ядра:
   - `manager-queue`
-  - `outbound-queue`
   - `control-queue`
   - `scheduled-queue`
 

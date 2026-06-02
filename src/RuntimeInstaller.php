@@ -41,7 +41,7 @@ final class RuntimeInstaller
         }
 
         $layout = new FileQueueLayout($config);
-        foreach (['manager', 'command', 'exec', 'control', 'outbound'] as $queueName) {
+        foreach (['manager', 'command', 'exec', 'control'] as $queueName) {
             foreach (['new', 'running', 'done', 'failed'] as $state) {
                 $layout->queueDir($queueName, $state);
             }

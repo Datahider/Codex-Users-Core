@@ -56,7 +56,6 @@ final class FileQueueLayout
     {
         return match ($queueName) {
             'manager' => 'manager-queue',
-            'outbound' => 'outbound-queue',
             'command' => 'command-queue',
             'exec' => 'exec-queue',
             'control' => 'control-queue',

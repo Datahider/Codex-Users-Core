@@ -57,10 +57,6 @@ PHP);
         $tmpRoot . '/runtime/control-queue/done',
         $tmpRoot . '/runtime/control-queue/failed',
         $tmpRoot . '/runtime/control-results',
-        $tmpRoot . '/runtime/outbound-queue/new',
-        $tmpRoot . '/runtime/outbound-queue/running',
-        $tmpRoot . '/runtime/outbound-queue/done',
-        $tmpRoot . '/runtime/outbound-queue/failed',
         $tmpRoot . '/runtime/scheduled-queue',
     ];
 

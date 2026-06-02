@@ -35,7 +35,9 @@ try {
     assertContains('RouterStatusMessageService', $manager, 'manager router status bootstrap');
     assertContains('RouterTransportClient', $control, 'control watcher router transport bootstrap');
     assertNotContains('QueueTransportClient', $manager, 'manager queue transport bootstrap');
+    assertNotContains('QueueStatusMessageService', $manager, 'manager queue status bootstrap');
     assertNotContains('QueueTransportClient', $control, 'control queue transport bootstrap');
+    assertNotContains('QueueStatusMessageService', $control, 'control queue status bootstrap');
 
     fwrite(STDOUT, "Background supervisor router bootstrap smoke: OK\n");
     exit(0);
