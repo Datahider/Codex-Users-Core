@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace CodexRuntime\CommandWatcher;
 
 use CodexRuntime\Config;
+use CodexRuntime\Environment;
 use RuntimeException;
 
 final class CommandRunner
@@ -25,7 +26,7 @@ final class CommandRunner
 
         $this->assertAllowed($command);
 
-        $cwd = trim((string) ($job['cwd'] ?? $this->config->get($this->section, 'default_cwd', '/home/web')));
+        $cwd = $this->resolveWorkingDirectory($job);
         $timeout = (int) ($job['timeout'] ?? $this->config->get($this->section, 'default_timeout', 600));
         $env = is_array($job['env'] ?? null) ? $job['env'] : [];
         $wrappedCommand = $this->wrapCommand($command);
@@ -131,9 +132,19 @@ BASH . "\n" . $command;
         }
     }
 
+    private function resolveWorkingDirectory(array $job): string
+    {
+        $cwd = trim((string) ($job['cwd'] ?? $this->config->get($this->section, 'default_cwd', $this->defaultHomeDirectory())));
+        if ($cwd === '') {
+            throw new RuntimeException('Working directory is empty');
+        }
+
+        return $cwd;
+    }
+
     private function assertWorkdirAllowed(string $cwd): void
     {
-        foreach ((array) $this->config->get($this->section, 'allowed_workdirs', ['/home/web']) as $root) {
+        foreach ($this->allowedWorkdirs() as $root) {
             $root = rtrim((string) $root, '/');
             if ($cwd === $root || str_starts_with($cwd, $root . '/')) {
                 return;
@@ -141,6 +152,37 @@ BASH . "\n" . $command;
         }
 
         throw new RuntimeException("Working directory is not allowed: {$cwd}");
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function allowedWorkdirs(): array
+    {
+        $roots = (array) $this->config->get($this->section, 'allowed_workdirs', [$this->defaultHomeDirectory()]);
+        $normalized = [];
+        foreach ($roots as $root) {
+            $path = trim((string) $root);
+            if ($path !== '') {
+                $normalized[] = $path;
+            }
+        }
+
+        if ($normalized === []) {
+            throw new RuntimeException('Allowed working directories list is empty');
+        }
+
+        return $normalized;
+    }
+
+    private function defaultHomeDirectory(): string
+    {
+        $home = Environment::homeDirectory();
+        if ($home === null || $home === '') {
+            throw new RuntimeException('Cannot resolve home directory for default working directory');
+        }
+
+        return $home;
     }
 
     private function safeClose(mixed $resource): void
