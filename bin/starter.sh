@@ -3,6 +3,7 @@ set -euo pipefail
 
 LOG_TAG="${CODEX_STARTER_LOG_TAG:-codex-runtime-starter}"
 OPTIONAL_LOG_FILE="${CODEX_STARTER_LOG_FILE:-}"
+MIRROR_LOG_TO_STDERR="${CODEX_STARTER_LOG_TO_STDERR:-0}"
 LOGGER_BIN="$(command -v logger || true)"
 
 if [[ -z "$LOGGER_BIN" ]]; then
@@ -52,7 +53,9 @@ log() {
   timestamp="$(date --iso-8601=seconds)"
   line="[$timestamp] $*"
 
-  printf '%s\n' "$line" >&2
+  if [[ "$MIRROR_LOG_TO_STDERR" == "1" ]]; then
+    printf '%s\n' "$line" >&2
+  fi
 
   "$LOGGER_BIN" -t "$LOG_TAG" -- "$*" 2>/dev/null || true
 
