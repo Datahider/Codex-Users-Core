@@ -134,7 +134,7 @@ $transport = new RouterTransportClient(new ApiClient(
     (string) $config->require('router', 'base_url'),
     (string) $config->require('router', 'core_token'),
     new CurlHttpClient()
-));
+), $logger, (int) $config->get('router', 'retry_unavailable_after_seconds', 15));
 $statusMessages = new RouterStatusMessageService($config, $transport);
 $shutdown = new WorkerShutdownFlag($config, 'background', 'manager_worker_shutdown_flag_file', $paths->workerShutdownFlagFile('manager_worker'));
 $activeTurn = new ActiveTurnRegistry($paths->activeTurnFile());
@@ -225,7 +225,7 @@ $transport = new RouterTransportClient(new ApiClient(
     (string) $config->require('router', 'base_url'),
     (string) $config->require('router', 'core_token'),
     new CurlHttpClient()
-));
+), $logger, (int) $config->get('router', 'retry_unavailable_after_seconds', 15));
 $ingress = new TransportMessageIngress(new EventRepository($config));
 $sessions = new CodexSessionCatalog();
 $shutdown = new WorkerShutdownFlag($config, 'background', 'control_watcher_shutdown_flag_file', $paths->workerShutdownFlagFile('control_watcher'));

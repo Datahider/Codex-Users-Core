@@ -11,44 +11,48 @@ require_once __DIR__ . '/../src/bootstrap.php';
 
 try {
     $http = new class implements HttpClientInterface {
-        public string $method = '';
-        public string $url = '';
-        public ?string $body = null;
+        public int $attempts = 0;
+        public ?string $lastBody = null;
 
         public function request(string $method, string $url, array $headers, ?string $body = null): array
         {
-            $this->method = $method;
-            $this->url = $url;
-            $this->body = $body;
+            $this->attempts++;
+            $this->lastBody = $body;
+
+            if ($this->attempts < 3) {
+                throw new RuntimeException('Router HTTP request failed: connection refused');
+            }
 
             return [
                 'status_code' => 200,
-                'body' => '{"accepted":true,"event_id":501}',
+                'body' => '{"accepted":true,"event_id":777}',
             ];
         }
     };
 
-    $delivery = new RouterDeliveryClient(new ApiClient('https://router.example', 'test-token', $http));
+    $delivery = new RouterDeliveryClient(
+        new ApiClient('https://router.example', 'test-token', $http),
+        null,
+        0
+    );
     $result = $delivery->sendMessage('runtime-42', 'done text');
 
-    assertSame('POST', $http->method, 'HTTP method');
-    assertSame('https://router.example/api/v1/core/outbound', $http->url, 'HTTP URL');
-    assertSame(501, $result['message_id'] ?? null, 'message id');
+    assertSame(3, $http->attempts, 'retry attempts');
+    assertSame(777, $result['message_id'] ?? null, 'message id');
 
-    $payload = json_decode((string) $http->body, true);
+    $payload = json_decode((string) $http->lastBody, true);
     if (!is_array($payload)) {
-        throw new RuntimeException('Router outbound payload is not valid JSON');
+        throw new RuntimeException('Router outbound retry payload is not valid JSON');
     }
 
     assertSame('runtime-42', $payload['runtime_session_id'] ?? null, 'runtime session id');
     assertSame('final', $payload['kind'] ?? null, 'kind');
     assertSame('done text', $payload['text'] ?? null, 'text');
-    assertSame([], $payload['attachments'] ?? null, 'attachments');
 
-    fwrite(STDOUT, "Router outbound smoke: OK\n");
+    fwrite(STDOUT, "Router outbound retry smoke: OK\n");
     exit(0);
 } catch (Throwable $e) {
-    fwrite(STDERR, "Router outbound smoke failed: {$e->getMessage()}\n");
+    fwrite(STDERR, "Router outbound retry smoke failed: {$e->getMessage()}\n");
     exit(1);
 }
 

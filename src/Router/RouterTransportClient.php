@@ -4,15 +4,19 @@ declare(strict_types=1);
 
 namespace CodexRuntime\Router;
 
+use CodexRuntime\Logger;
 use CodexRuntime\Contracts\TransportClientInterface;
 
 final class RouterTransportClient implements TransportClientInterface
 {
     private readonly RouterDeliveryClient $delivery;
 
-    public function __construct(ApiClient $api)
-    {
-        $this->delivery = new RouterDeliveryClient($api);
+    public function __construct(
+        ApiClient $api,
+        ?Logger $logger = null,
+        int $retryUnavailableAfterSeconds = 15
+    ) {
+        $this->delivery = new RouterDeliveryClient($api, $logger, $retryUnavailableAfterSeconds);
     }
 
     public function sendMessage(
