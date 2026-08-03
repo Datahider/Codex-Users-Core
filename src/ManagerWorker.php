@@ -106,7 +106,8 @@ final class ManagerWorker
 
     private function processUserMessage(array $event): array
     {
-        $text = trim((string) ($event['text'] ?? ''));
+        $attachments = is_array($event['meta']['attachments'] ?? null) ? $event['meta']['attachments'] : [];
+        $text = AttachmentPromptFormatter::prependAttachments((string) ($event['text'] ?? ''), $attachments);
         if ($text === '') {
             throw new RuntimeException('Empty text for user_message');
         }
