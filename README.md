@@ -44,6 +44,18 @@ cp config/config.example.php ~/.codex-users-core/config.php
 php bin/run-core.php
 ```
 
+## Bundled skills
+
+`Core` может хранить project-scoped skill source внутри `skills/`.
+
+При старте `bin/run-core.php` должен:
+
+- определить runtime `CODEX_HOME`
+- проверить bundled skills из проекта
+- скопировать их в `<CODEX_HOME>/skills/`, если skill отсутствует или содержимое отличается
+
+Source of truth для таких skills находится внутри дерева проекта, а runtime-копия считается производной.
+
 ## Обязательная настройка
 
 По умолчанию `php bin/run-core.php` ищет конфиг в:

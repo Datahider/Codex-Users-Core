@@ -25,6 +25,7 @@ $config = Config::fromFile($configPath);
 $installer = new RuntimeInstaller();
 $installer->ensureEnvironment();
 $installer->ensureStorageLayout($config);
+$installer->ensureBundledSkills();
 $logger = new Logger((string) $config->get('storage', 'log_file', (new RuntimePaths($config))->logFile()));
 $guard = new MainProcessGuard($config, $logger);
 $guard->acquire();

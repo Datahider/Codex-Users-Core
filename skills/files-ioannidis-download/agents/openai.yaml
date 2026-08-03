@@ -1,0 +1,4 @@
+interface:
+  display_name: "Files.ioannidis Download"
+  short_description: "Download files from files.ioannidis.ru"
+  default_prompt: "Use $files-ioannidis-download to fetch a file from files.ioannidis.ru correctly."
