@@ -74,8 +74,9 @@ final class RouterIngressWorker
             throw new RuntimeException('Router event is missing runtime session id');
         }
 
+        $attachments = is_array($event['meta']['attachments'] ?? null) ? $event['meta']['attachments'] : [];
         $text = trim((string) ($event['text'] ?? ''));
-        if ($text === '') {
+        if ($text === '' && $attachments === []) {
             throw new RuntimeException('Router event is missing text payload');
         }
 
@@ -95,7 +96,10 @@ final class RouterIngressWorker
                 is_array($event['meta'] ?? null) ? $event['meta'] : []
             );
         } else {
-            $mergedEventId = $this->events->mergePendingRuntimeMessage($runtimeSessionId, $text);
+            $mergedEventId = null;
+            if ($attachments === []) {
+                $mergedEventId = $this->events->mergePendingRuntimeMessage($runtimeSessionId, $text);
+            }
             if ($mergedEventId === null) {
                 $this->events->enqueue($event);
             } else {
