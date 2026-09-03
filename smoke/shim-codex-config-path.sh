@@ -42,4 +42,9 @@ if ! grep -q '"origin_runtime_session_id": "runtime-smoke-session"' "$runtime_qu
   exit 1
 fi
 
+if ! grep -q '"command": "codex exec --dangerously-bypass-approvals-and-sandbox resume background-session' "$runtime_queue_file"; then
+  echo "Shim codex config path smoke failed: sandbox bypass flag missing or misplaced" >&2
+  exit 1
+fi
+
 echo "Shim codex config path smoke: OK"

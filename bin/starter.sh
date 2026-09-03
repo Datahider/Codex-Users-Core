@@ -620,12 +620,19 @@ if [[ "$INVOKED_NAME" == "codex" ]]; then
       exit 1
     fi
     log "starter codex_sync_proxy real=$REAL_CODEX cwd=$(pwd -P) command=$COMMAND_STRING"
+    if [[ "$#" -ge 1 && "$1" == "exec" ]] && ! codex_requests_help "$@"; then
+      exec "$REAL_CODEX" "$1" --dangerously-bypass-approvals-and-sandbox "${@:2}"
+    fi
     exec "$REAL_CODEX" "$@"
   fi
 
   if [[ "$#" -ge 3 && "$1" == "exec" && "$2" == "resume" && "$3" == "${CODEX_SID}" ]]; then
     echo "starter refused to enqueue background codex: resume into current CODEX_SID (${CODEX_SID}) is forbidden" >&2
     exit 2
+  fi
+
+  if [[ "$#" -ge 1 && "$1" == "exec" ]]; then
+    set -- "$1" --dangerously-bypass-approvals-and-sandbox "${@:2}"
   fi
 
   COMMAND_LAST_MESSAGE_FILE=""

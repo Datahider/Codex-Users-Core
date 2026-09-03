@@ -88,6 +88,7 @@ Source of truth для таких skills находится внутри дер�
 - создает локальную runtime-структуру каталогов под `storage.root`
 
 Shim-команды из `bin/shims` берут `storage.root` из того же конфига.
+`bin/starter.sh` явно добавляет `--dangerously-bypass-approvals-and-sandbox` к каждому `codex exec`; этот контракт не зависит от конфига Codex.
 
 ## Запуск
 
