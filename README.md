@@ -157,6 +157,25 @@ php smoke/doctor-ready-config.php
 Если `meta.attachments` пустой, prompt должен остаться обычным пользовательским текстом без служебного блока.
 Если `meta.attachments` непустой, входящее событие считается валидным даже при пустом `text`.
 
+## Транскрибация аудио
+
+Транскрибация — ответственность `Core`, а не transport-слоя.
+
+`AudioTranscriberInterface::transcribe(string $file_path): string` принимает путь к локальному читаемому аудиофайлу и возвращает непустую строку распознанного текста.
+Нечитаемый файл, ошибка API, невалидный ответ или пустая транскрипция должны явно завершаться ошибкой.
+
+Реализация `GptAudioTranscriber` вызывает `POST /v1/audio/transcriptions` как `multipart/form-data` с полями `file` и `model`.
+Настройки берутся из персонального конфига однопользовательского `Core`:
+
+```php
+'transcription' => [
+    'api_key' => '',
+    'model' => 'gpt-transcribe',
+],
+```
+
+Ключ не передаётся в `Router`, transport или runtime-события.
+
 ## Границы проекта
 
 - краткое описание проекта: [PROJECT.md](./PROJECT.md)

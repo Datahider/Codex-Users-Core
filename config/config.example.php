@@ -17,6 +17,10 @@ return [
         'base_url' => 'https://cdx-router.botmeister.ru',
         'core_token' => '',
     ],
+    'transcription' => [
+        'api_key' => '',
+        'model' => 'gpt-transcribe',
+    ],
     'storage' => [
         // По умолчанию runtime-данные лежат вне каталога с точкой:
         // ~/var/codex-users-core
