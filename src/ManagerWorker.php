@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace CodexRuntime;
 
+use CodexRuntime\Attachment\VoiceAttachmentProcessor;
 use CodexRuntime\Contracts\StatusMessageServiceInterface;
 use CodexRuntime\Contracts\TransportClientInterface;
 use CodexRuntime\ManagerQueue\EventRepository;
@@ -22,7 +23,8 @@ final class ManagerWorker
         private StatusMessageServiceInterface $statusMessages,
         private WorkerShutdownFlag $shutdown,
         private TransportClientInterface $transport,
-        private CodexProcess $codex
+        private CodexProcess $codex,
+        private VoiceAttachmentProcessor $voice_attachments
     ) {
     }
 
@@ -107,7 +109,8 @@ final class ManagerWorker
     private function processUserMessage(array $event): array
     {
         $attachments = is_array($event['meta']['attachments'] ?? null) ? $event['meta']['attachments'] : [];
-        $text = AttachmentPromptFormatter::prependAttachments((string) ($event['text'] ?? ''), $attachments);
+        $processed = $this->voice_attachments->process((string) ($event['text'] ?? ''), $attachments);
+        $text = AttachmentPromptFormatter::prependAttachments($processed['text'], $processed['attachments']);
         if ($text === '') {
             throw new RuntimeException('Empty text for user_message');
         }

@@ -113,6 +113,11 @@ final class BackgroundSupervisor
 chdir(%s);
 require %s;
 use CodexRuntime\ActiveTurnRegistry;
+use CodexRuntime\Attachment\CurlFileDownloadHttpClient;
+use CodexRuntime\Attachment\FilesIoannidisAttachmentDownloader;
+use CodexRuntime\Attachment\VoiceAttachmentProcessor;
+use CodexRuntime\Audio\CurlTranscriptionHttpClient;
+use CodexRuntime\Audio\GptAudioTranscriber;
 use CodexRuntime\Config;
 use CodexRuntime\CodexProcess;
 use CodexRuntime\JsonFileStore;
@@ -139,7 +144,15 @@ $statusMessages = new RouterStatusMessageService($config, $transport);
 $shutdown = new WorkerShutdownFlag($config, 'background', 'manager_worker_shutdown_flag_file', $paths->workerShutdownFlagFile('manager_worker'));
 $activeTurn = new ActiveTurnRegistry($paths->activeTurnFile());
 $codex = new CodexProcess($config, $logger, $activeTurn);
-$worker = new ManagerWorker($config, $logger, $events, $stateStore, $statusMessages, $shutdown, $transport, $codex);
+$voiceAttachments = new VoiceAttachmentProcessor(
+    new FilesIoannidisAttachmentDownloader(new CurlFileDownloadHttpClient()),
+    new GptAudioTranscriber(
+        (string) $config->require('transcription', 'api_key'),
+        (string) $config->require('transcription', 'model'),
+        new CurlTranscriptionHttpClient()
+    )
+);
+$worker = new ManagerWorker($config, $logger, $events, $stateStore, $statusMessages, $shutdown, $transport, $codex, $voiceAttachments);
 $worker->run();
 PHP,
             'router_ingress_worker' => <<<'PHP'

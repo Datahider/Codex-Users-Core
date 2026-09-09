@@ -70,6 +70,8 @@ Source of truth для таких skills находится внутри дер�
 
 - `router.base_url`
 - `router.core_token`
+- `transcription.api_key`
+- `transcription.model`
 - `codex.cwd`, если `codex` должен запускаться из другого каталога
 
 `storage.root` менять не обязательно. По умолчанию он равен:
@@ -83,7 +85,7 @@ Source of truth для таких skills находится внутри дер�
 При старте `bin/run-core.php` сам:
 
 - проверяет наличие и читаемость конфига
-- валидирует `router.base_url` и `router.core_token`
+- валидирует `router.base_url`, `router.core_token`, `transcription.api_key` и `transcription.model`
 - проверяет PHP-зависимости и нужные команды в `PATH`
 - создает локальную runtime-структуру каталогов под `storage.root`
 
@@ -160,6 +162,17 @@ php smoke/doctor-ready-config.php
 ## Транскрибация аудио
 
 Транскрибация — ответственность `Core`, а не transport-слоя.
+
+Для входящего `user_message` транскрибируются только вложения с точным `type=voice`.
+Вложения с `type=audio` и любым другим типом не передаются в transcriber и продолжают обрабатываться общим attachment prompt.
+
+Каждое voice-вложение обязано содержать канонический URL `https://files.ioannidis.ru/<file_id>`.
+Core скачивает файл только через `https://files.ioannidis.ru/<file_id>?download=1` с HTTP-заголовком `Referer: https://files.ioannidis.ru/`, сохраняет его во временный файл с расширением из `attachment.name`, передаёт локальный путь в `AudioTranscriberInterface` и удаляет временный файл после успешной транскрибации или ошибки.
+Невалидный URL, ошибка скачивания или ошибка транскрибации явно завершают обработку события ошибкой; fallback на исходный URL или игнорирование voice-вложения запрещены.
+
+Транскрипции нескольких voice-вложений объединяются в исходном порядке через пустую строку.
+Если исходный `text`/caption непустой, он добавляется после транскрипций через пустую строку без потери содержимого.
+Voice-вложения после транскрибации не включаются в общий attachment prompt; остальные вложения форматируются существующим `AttachmentPromptFormatter` перед полученным текстом.
 
 `AudioTranscriberInterface::transcribe(string $file_path): string` принимает путь к локальному читаемому аудиофайлу и возвращает непустую строку распознанного текста.
 Нечитаемый файл, ошибка API, невалидный ответ или пустая транскрипция должны явно завершаться ошибкой.

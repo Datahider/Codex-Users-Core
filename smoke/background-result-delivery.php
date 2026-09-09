@@ -4,6 +4,9 @@
 declare(strict_types=1);
 
 use CodexRuntime\ActiveTurnRegistry;
+use CodexRuntime\Attachment\AttachmentDownloaderInterface;
+use CodexRuntime\Attachment\VoiceAttachmentProcessor;
+use CodexRuntime\Audio\AudioTranscriberInterface;
 use CodexRuntime\CodexProcess;
 use CodexRuntime\Config;
 use CodexRuntime\Contracts\TransportClientInterface;
@@ -45,9 +48,9 @@ fi
 cat >/dev/null
 
 printf '%s\n' '{"type":"item.completed","item":{"type":"agent_message","text":"commentary chunk"}}'
-sleep 1
+php -r 'usleep(1000000);'
 printf '%s\n' '{"type":"item.started","item":{"type":"exec_command"}}'
-sleep 2
+php -r 'usleep(2000000);'
 printf '%s\n' 'final text' >"$output_file"
 SH);
     chmod($codexBin, 0775);
@@ -95,7 +98,21 @@ SH);
         new NoopStatusMessageService(),
         new WorkerShutdownFlag($config, 'manager_queue', 'shutdown_flag', $paths->workerShutdownFlagFile('manager_worker')),
         $transport,
-        new CodexProcess($config, new Logger($paths->logFile()), new ActiveTurnRegistry($paths->activeTurnFile()))
+        new CodexProcess($config, new Logger($paths->logFile()), new ActiveTurnRegistry($paths->activeTurnFile())),
+        new VoiceAttachmentProcessor(
+            new class implements AttachmentDownloaderInterface {
+                public function download(string $url, ?string $filename = null): string
+                {
+                    throw new RuntimeException('Unexpected attachment download');
+                }
+            },
+            new class implements AudioTranscriberInterface {
+                public function transcribe(string $file_path): string
+                {
+                    throw new RuntimeException('Unexpected audio transcription');
+                }
+            }
+        )
     );
 
     $method = new ReflectionMethod(ManagerWorker::class, 'processBackgroundResult');

@@ -3,6 +3,7 @@
 
 declare(strict_types=1);
 
+use CodexRuntime\ActiveTurnRegistry;
 use CodexRuntime\CodexProcess;
 use CodexRuntime\Config;
 use CodexRuntime\Logger;
@@ -23,7 +24,11 @@ try {
         ],
     ]);
 
-    $process = new CodexProcess($config, new Logger($tmpRoot . '/runtime.log'));
+    $process = new CodexProcess(
+        $config,
+        new Logger($tmpRoot . '/runtime.log'),
+        new ActiveTurnRegistry($tmpRoot . '/active-turn.json')
+    );
     $method = new ReflectionMethod($process, 'buildCommand');
     $method->setAccessible(true);
 

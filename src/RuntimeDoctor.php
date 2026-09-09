@@ -45,6 +45,16 @@ final class RuntimeDoctor
             $issues[] = 'router.core_token is empty';
         }
 
+        $transcription_api_key = trim((string) $config->get('transcription', 'api_key', ''));
+        if ($transcription_api_key === '') {
+            $issues[] = 'transcription.api_key is empty';
+        }
+
+        $transcription_model = trim((string) $config->get('transcription', 'model', ''));
+        if ($transcription_model === '') {
+            $issues[] = 'transcription.model is empty';
+        }
+
         $codexCwd = trim((string) $config->get('codex', 'cwd', ''));
         if ($codexCwd === '') {
             $issues[] = 'codex.cwd is empty';

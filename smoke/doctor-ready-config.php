@@ -27,6 +27,10 @@ return [
         'base_url' => 'https://router.local',
         'core_token' => 'token',
     ],
+    'transcription' => [
+        'api_key' => 'transcription-token',
+        'model' => 'gpt-transcribe',
+    ],
     'storage' => [
         'root' => '__ROOT__',
     ],
@@ -43,6 +47,21 @@ PHP);
     $issues = (new RuntimeDoctor())->diagnose($configPath);
     if ($issues !== []) {
         throw new \RuntimeException("doctor reported issues:\n" . implode("\n", $issues));
+    }
+
+    $configSource = str_replace("'api_key' => 'transcription-token'", "'api_key' => ''", $configSource);
+    file_put_contents($configPath, $configSource);
+    $issues = (new RuntimeDoctor())->diagnose($configPath);
+    if (!in_array('transcription.api_key is empty', $issues, true)) {
+        throw new \RuntimeException('doctor accepted empty transcription.api_key');
+    }
+
+    $configSource = str_replace("'api_key' => ''", "'api_key' => 'transcription-token'", $configSource);
+    $configSource = str_replace("'model' => 'gpt-transcribe'", "'model' => ''", $configSource);
+    file_put_contents($configPath, $configSource);
+    $issues = (new RuntimeDoctor())->diagnose($configPath);
+    if (!in_array('transcription.model is empty', $issues, true)) {
+        throw new \RuntimeException('doctor accepted empty transcription.model');
     }
 
     fwrite(STDOUT, "Doctor ready-config smoke: OK\n");
