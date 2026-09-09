@@ -108,13 +108,6 @@ final class ManagerWorker
 
     private function processUserMessage(array $event): array
     {
-        $attachments = is_array($event['meta']['attachments'] ?? null) ? $event['meta']['attachments'] : [];
-        $processed = $this->voice_attachments->process((string) ($event['text'] ?? ''), $attachments);
-        $text = AttachmentPromptFormatter::prependAttachments($processed['text'], $processed['attachments']);
-        if ($text === '') {
-            throw new RuntimeException('Empty text for user_message');
-        }
-
         $runtimeSessionId = trim((string) ($event['session_id'] ?? $event['meta']['session_id'] ?? ''));
         if ($runtimeSessionId === '') {
             return [
@@ -124,6 +117,23 @@ final class ManagerWorker
                 'session_id' => 'none',
                 'event_type' => 'user_message',
             ];
+        }
+
+        $attachments = is_array($event['meta']['attachments'] ?? null) ? $event['meta']['attachments'] : [];
+        try {
+            $processed = $this->voice_attachments->process((string) ($event['text'] ?? ''), $attachments);
+        } catch (Throwable $error) {
+            $this->sendMessage(
+                $runtimeSessionId,
+                'Не удалось расшифровать голосовое сообщение. Проверьте transcription.api_key и повторите отправку.',
+                null,
+                null
+            );
+            throw $error;
+        }
+        $text = AttachmentPromptFormatter::prependAttachments($processed['text'], $processed['attachments']);
+        if ($text === '') {
+            throw new RuntimeException('Empty text for user_message');
         }
 
         $state = $this->readManagerState();

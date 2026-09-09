@@ -16,7 +16,8 @@
             "php smoke/doctor-ready-config.php",
             "php smoke/gpt-audio-transcriber.php",
             "php smoke/files-ioannidis-attachment-downloader.php",
-            "php smoke/voice-attachment-processing.php"
+            "php smoke/voice-attachment-processing.php",
+            "php smoke/voice-attachment-user-error.php"
         ]
     },
     "autoload": {
