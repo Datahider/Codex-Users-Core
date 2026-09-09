@@ -88,6 +88,11 @@ SH);
         public function sendChatAction(int|string $chatId, string $action = 'typing'): void
         {
         }
+
+        public function sendTranscript(int|string $chatId, string $text): array
+        {
+            throw new RuntimeException('Unexpected transcript');
+        }
     };
 
     $worker = new ManagerWorker(

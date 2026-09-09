@@ -131,6 +131,9 @@ final class ManagerWorker
             );
             throw $error;
         }
+        if ($processed['transcript'] !== '') {
+            $this->transport->sendTranscript($runtimeSessionId, $processed['transcript']);
+        }
         $text = AttachmentPromptFormatter::prependAttachments($processed['text'], $processed['attachments']);
         if ($text === '') {
             throw new RuntimeException('Empty text for user_message');

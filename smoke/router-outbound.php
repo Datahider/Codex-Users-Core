@@ -45,6 +45,15 @@ try {
     assertSame('done text', $payload['text'] ?? null, 'text');
     assertSame([], $payload['attachments'] ?? null, 'attachments');
 
+    $result = $delivery->sendTranscript('runtime-42', 'recognized speech');
+    assertSame(501, $result['message_id'] ?? null, 'transcript message id');
+    $payload = json_decode((string) $http->body, true);
+    if (!is_array($payload)) {
+        throw new RuntimeException('Router transcript payload is not valid JSON');
+    }
+    assertSame('transcript', $payload['kind'] ?? null, 'transcript kind');
+    assertSame('recognized speech', $payload['text'] ?? null, 'transcript text');
+
     fwrite(STDOUT, "Router outbound smoke: OK\n");
     exit(0);
 } catch (Throwable $e) {

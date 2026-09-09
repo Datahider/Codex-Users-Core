@@ -64,6 +64,7 @@ assertSame([['https://files.ioannidis.ru/Voice1', 'voice.ogg']], $downloader->ur
 assertSame([$downloaded_file], $transcriber->file_paths, 'transcribed files');
 assertSame(false, is_file($downloaded_file), 'temporary voice file removed');
 assertSame('Распознанная речь' . "\n\n" . 'Подпись пользователя', $result['text'] ?? null, 'voice text with caption');
+assertSame('Распознанная речь', $result['transcript'] ?? null, 'voice transcript');
 assertSame([
     [
         'type' => 'audio',
@@ -146,6 +147,7 @@ $audio_result = (new VoiceAttachmentProcessor($audio_downloader, $audio_transcri
 assertSame(0, $audio_downloader->calls, 'audio download calls');
 assertSame(0, $audio_transcriber->calls, 'audio transcription calls');
 assertSame('', $audio_result['text'] ?? null, 'audio text');
+assertSame('', $audio_result['transcript'] ?? null, 'audio transcript');
 assertSame('audio', $audio_result['attachments'][0]['type'] ?? null, 'audio attachment preserved');
 unlink($audio_file);
 

@@ -127,7 +127,9 @@ php smoke/doctor-ready-config.php
 
 Ядро может выпускать только такие outbound payload'ы:
 
-- `message`
+- `final`
+- `commentary`
+- `transcript`
 - `heartbeat`
 - `status`
 
@@ -135,9 +137,11 @@ php smoke/doctor-ready-config.php
 
 Для `ManagerWorker` это значит следующее:
 
-- `user_message`, `scheduled_prompt` и `background_result` во время `codex->run(...)` стримят промежуточные commentary-чанки как outbound `message`
-- после завершения каждого такого turn финальный текст уходит отдельным outbound `message`
+- `user_message`, `scheduled_prompt` и `background_result` во время `codex->run(...)` стримят промежуточные чанки как outbound `commentary`
+- после завершения каждого такого turn финальный текст уходит отдельным outbound `final`
 - для `background_result` отличается только prompt-builder и текст fallback-ответа при пустом результате
+- после успешного распознавания каждого входящего `voice` объединённый текст распознавания сначала уходит отдельным outbound `transcript`, а затем тот же текст вместе с непустой подписью передаётся в `codex` как пользовательское сообщение
+- transport сам решает, как представить `transcript`; исходное голосовое сообщение повторно не прикладывается
 
 ## Входящие вложения
 

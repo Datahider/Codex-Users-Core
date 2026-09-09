@@ -42,6 +42,11 @@ try {
         public function sendChatAction(int|string $chatId, string $action = 'typing'): void
         {
         }
+
+        public function sendTranscript(int|string $chatId, string $text): array
+        {
+            throw new RuntimeException('Unexpected transcript');
+        }
     };
     $voice_processor = new VoiceAttachmentProcessor(
         new class implements AttachmentDownloaderInterface {

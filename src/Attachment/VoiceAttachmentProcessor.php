@@ -17,7 +17,7 @@ final class VoiceAttachmentProcessor
 
     /**
      * @param array<int, array<string, mixed>> $attachments
-     * @return array{text:string,attachments:array<int, array<string, mixed>>}
+     * @return array{text:string,transcript:string,attachments:array<int, array<string, mixed>>}
      */
     public function process(string $text, array $attachments): array
     {
@@ -48,6 +48,7 @@ final class VoiceAttachmentProcessor
             }
         }
 
+        $transcript = implode("\n\n", $transcriptions);
         $text_parts = $transcriptions;
         $original_text = trim($text);
         if ($original_text !== '') {
@@ -56,6 +57,7 @@ final class VoiceAttachmentProcessor
 
         return [
             'text' => implode("\n\n", $text_parts),
+            'transcript' => $transcript,
             'attachments' => $remaining_attachments,
         ];
     }

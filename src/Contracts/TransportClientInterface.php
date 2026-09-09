@@ -17,5 +17,10 @@ interface TransportClientInterface
         bool $disableNotification = false
     ): array;
 
+    /**
+     * @return array<string, mixed>
+     */
+    public function sendTranscript(int|string $chatId, string $text): array;
+
     public function sendChatAction(int|string $chatId, string $action = 'typing'): void;
 }
