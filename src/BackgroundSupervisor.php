@@ -130,7 +130,8 @@ use CodexRuntime\Router\RouterStatusMessageService;
 use CodexRuntime\Router\RouterTransportClient;
 use CodexRuntime\RuntimePaths;
 use CodexRuntime\WorkerShutdownFlag;
-$config = Config::fromFile(%s);
+$configPath = %3$s;
+$config = Config::fromFile($configPath);
 $paths = new RuntimePaths($config);
 $logger = new Logger((string) $config->get('storage', 'log_file', $paths->logFile()));
 $events = new EventRepository($config);
@@ -143,7 +144,7 @@ $transport = new RouterTransportClient(new ApiClient(
 $statusMessages = new RouterStatusMessageService($config, $transport);
 $shutdown = new WorkerShutdownFlag($config, 'background', 'manager_worker_shutdown_flag_file', $paths->workerShutdownFlagFile('manager_worker'));
 $activeTurn = new ActiveTurnRegistry($paths->activeTurnFile());
-$codex = new CodexProcess($config, $logger, $activeTurn);
+$codex = new CodexProcess($config, $logger, $activeTurn, $configPath);
 $voiceAttachments = new VoiceAttachmentProcessor(
     new FilesIoannidisAttachmentDownloader(new CurlFileDownloadHttpClient()),
     new GptAudioTranscriber(

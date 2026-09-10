@@ -73,6 +73,23 @@ final class RouterDeliveryClient implements DeliveryClientInterface, TransportCl
         );
     }
 
+    /**
+     * @param list<array<string, mixed>> $attachments
+     * @return array<string, mixed>
+     */
+    public function sendDocument(int|string $chatId, string $caption, array $attachments): array
+    {
+        if (count($attachments) !== 1) {
+            throw new RuntimeException('Document outbound requires exactly one attachment');
+        }
+
+        return $this->retryUntilDelivered(
+            (string) $chatId,
+            'document',
+            fn (): array => $this->sendOutbound((string) $chatId, 'document', $caption, [], $attachments)
+        );
+    }
+
     public function sendStatus(int|string $chatId, string $text, string $state, ?string $taskId = null): array
     {
         $meta = [
@@ -93,13 +110,13 @@ final class RouterDeliveryClient implements DeliveryClientInterface, TransportCl
      * @param array<string, mixed> $meta
      * @return array<string, mixed>
      */
-    private function sendOutbound(string $runtimeSessionId, string $kind, string $text, array $meta): array
+    private function sendOutbound(string $runtimeSessionId, string $kind, string $text, array $meta, array $attachments = []): array
     {
         $response = $this->api->postJson('/api/v1/core/outbound', [
             'runtime_session_id' => $runtimeSessionId,
             'kind' => $kind,
             'text' => $text,
-            'attachments' => [],
+            'attachments' => $attachments,
             'meta' => $meta,
         ]);
 

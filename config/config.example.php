@@ -17,6 +17,10 @@ return [
         'base_url' => 'https://cdx-router.botmeister.ru',
         'core_token' => '',
     ],
+    'file_exchange' => [
+        'base_url' => 'https://files.ioannidis.ru',
+        'token' => '',
+    ],
     'transcription' => [
         'api_key' => '',
         'model' => 'gpt-transcribe',

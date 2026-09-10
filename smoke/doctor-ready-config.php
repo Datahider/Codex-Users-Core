@@ -27,6 +27,10 @@ return [
         'base_url' => 'https://router.local',
         'core_token' => 'token',
     ],
+    'file_exchange' => [
+        'base_url' => 'https://files.ioannidis.ru',
+        'token' => 'file-token',
+    ],
     'transcription' => [
         'api_key' => 'transcription-token',
         'model' => 'gpt-transcribe',

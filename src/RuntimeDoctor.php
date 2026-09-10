@@ -45,6 +45,14 @@ final class RuntimeDoctor
             $issues[] = 'router.core_token is empty';
         }
 
+        $file_exchange_url = trim((string) $config->get('file_exchange', 'base_url', ''));
+        if ($file_exchange_url === '' || filter_var($file_exchange_url, FILTER_VALIDATE_URL) === false) {
+            $issues[] = 'file_exchange.base_url must be a valid URL';
+        }
+        if (trim((string) $config->get('file_exchange', 'token', '')) === '') {
+            $issues[] = 'file_exchange.token is empty';
+        }
+
         $transcription_api_key = trim((string) $config->get('transcription', 'api_key', ''));
         if ($transcription_api_key === '') {
             $issues[] = 'transcription.api_key is empty';

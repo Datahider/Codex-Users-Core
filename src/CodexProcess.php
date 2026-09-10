@@ -11,7 +11,8 @@ final class CodexProcess
     public function __construct(
         private Config $config,
         private Logger $logger,
-        private ActiveTurnRegistry $activeTurn
+        private ActiveTurnRegistry $activeTurn,
+        private ?string $config_path = null
     )
     {
     }
@@ -234,6 +235,22 @@ final class CodexProcess
             $command[] = (string) $arg;
         }
 
+        if ($this->config_path !== null && trim($this->config_path) !== '') {
+            $mcp_server = dirname(__DIR__) . '/bin/mcp-server.php';
+            $overrides = [
+                'mcp_servers.codex_runtime.command="php"',
+                'mcp_servers.codex_runtime.args=' . json_encode([$mcp_server], JSON_UNESCAPED_SLASHES),
+                'mcp_servers.codex_runtime.env_vars=["RUNTIME_SID","CODEX_CORE_CONFIG"]',
+                'mcp_servers.codex_runtime.required=true',
+                'mcp_servers.codex_runtime.enabled_tools=["send_document"]',
+                'mcp_servers.codex_runtime.tools.send_document.approval_mode="approve"',
+            ];
+            foreach ($overrides as $override) {
+                $command[] = '-c';
+                $command[] = $override;
+            }
+        }
+
         if ($sessionId !== null && $sessionId !== '') {
             $command[] = 'resume';
             $command[] = $sessionId;
@@ -380,6 +397,10 @@ final class CodexProcess
 
         if ($runtimeSessionId !== null && $runtimeSessionId !== '') {
             $env['RUNTIME_SID'] = $runtimeSessionId;
+        }
+
+        if ($this->config_path !== null && trim($this->config_path) !== '') {
+            $env['CODEX_CORE_CONFIG'] = $this->config_path;
         }
 
         $env['CODEX_STORAGE_ROOT'] = (new RuntimePaths($this->config))->root();
