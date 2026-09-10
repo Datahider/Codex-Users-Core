@@ -72,6 +72,8 @@ Source of truth для таких skills находится внутри дер�
 - `router.core_token`
 - `transcription.api_key`
 - `transcription.model`
+- `file_exchange.base_url`
+- `file_exchange.token`
 - `codex.cwd`, если `codex` должен запускаться из другого каталога
 
 `storage.root` менять не обязательно. По умолчанию он равен:
@@ -132,8 +134,26 @@ php smoke/doctor-ready-config.php
 - `transcript`
 - `heartbeat`
 - `status`
+- `document`
 
 Как именно они рендерятся и доставляются, решает внешний transport-слой.
+
+### MCP tool `send_document`
+
+Core подключает к каждому `codex exec` локальный STDIO MCP-сервер `bin/mcp-server.php`.
+Сервер публикует tool:
+
+```text
+send_document(path: string, caption?: string)
+```
+
+- `path` — абсолютный путь к читаемому regular file.
+- `caption` — необязательная подпись.
+- runtime-session берётся только из `RUNTIME_SID`; tool не принимает адресата.
+- файл загружается в `file_exchange.base_url` с Bearer-токеном `file_exchange.token`.
+- после загрузки Core отправляет в Router `kind=document`, пустой или равный `caption` текст и ровно одно attachment.
+- attachment содержит `file_id`, `url`, `name`, `mime` и `size_bytes` из фактического файла/ответа файлообменника.
+- любая ошибка проверки, загрузки или Router delivery завершает tool ошибкой.
 
 Для `ManagerWorker` это значит следующее:
 
