@@ -135,6 +135,7 @@ php smoke/doctor-ready-config.php
 - `heartbeat`
 - `status`
 - `warning`
+- `system`
 - `document`
 
 Как именно они рендерятся и доставляются, решает внешний transport-слой.
@@ -145,11 +146,15 @@ Core читает ChatGPT-лимиты через JSON-RPC метод `account/r
 процесса `codex app-server`.
 
 - transport-команда `/limits` не передаётся в manager queue; Core отвечает
-  outbound-сообщением `kind=final` с остатком 5-часового и недельного окон и
+  outbound-сообщением `kind=system` с остатком 5-часового и недельного окон и
   временем их сброса;
+- ответы transport-команд `/reset` и `/session` также отправляются как
+  `kind=system`;
 - остаток окна вычисляется как `100 - usedPercent`;
-- после каждого отправленного Core outbound-сообщения `kind=final` Core заново
+- только после каждого отправленного Core outbound-сообщения `kind=final` Core заново
   читает лимиты;
+- после `kind=system`, включая `/limits`, Core лимиты повторно не проверяет и
+  `kind=warning` не отправляет;
 - если остаток 5-часового окна строго меньше
   `limits.primary_remaining_warning_percent` или остаток недельного окна строго
   меньше `limits.secondary_remaining_warning_percent`, Core отправляет следом
