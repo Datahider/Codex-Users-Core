@@ -4,20 +4,64 @@
 declare(strict_types=1);
 
 use CodexRuntime\Config;
+use CodexRuntime\CodexAppServerRateLimitsProvider;
+use CodexRuntime\ActiveTurnRegistry;
+use CodexRuntime\CodexSessionCatalog;
+use CodexRuntime\ControlQueue\CommandRepository;
+use CodexRuntime\ControlWatcher;
 use CodexRuntime\Contracts\RateLimitsProviderInterface;
 use CodexRuntime\Contracts\TransportClientInterface;
+use CodexRuntime\JsonFileStore;
 use CodexRuntime\LimitMonitor;
+use CodexRuntime\Logger;
+use CodexRuntime\ManagerQueue\EventRepository;
+use CodexRuntime\RuntimePaths;
+use CodexRuntime\TransportMessageIngress;
+use CodexRuntime\WorkerShutdownFlag;
 
 require_once __DIR__ . '/../src/bootstrap.php';
 
 try {
+    $tmp_root = sys_get_temp_dir() . '/codex-limits-' . bin2hex(random_bytes(4));
+    mkdir($tmp_root, 0775, true);
+    $fake_codex = $tmp_root . '/codex';
+    file_put_contents($fake_codex, <<<'PHP'
+#!/usr/bin/env php
+<?php
+$initialize = json_decode((string) fgets(STDIN), true, 512, JSON_THROW_ON_ERROR);
+if (($initialize['method'] ?? null) !== 'initialize') {
+    exit(2);
+}
+fwrite(STDOUT, "{\"id\":0,\"result\":{\"userAgent\":\"fake\"}}\n");
+fflush(STDOUT);
+$initialized = json_decode((string) fgets(STDIN), true, 512, JSON_THROW_ON_ERROR);
+$request = json_decode((string) fgets(STDIN), true, 512, JSON_THROW_ON_ERROR);
+if (($initialized['method'] ?? null) !== 'initialized' || ($request['method'] ?? null) !== 'account/rateLimits/read') {
+    exit(3);
+}
+fwrite(STDOUT, '{"id":1,"result":{"rateLimits":{"planType":"plus","primary":{"usedPercent":85,"resetsAt":1789128302},"secondary":{"usedPercent":89,"resetsAt":1789458314}}}}' . "\n");
+fflush(STDOUT);
+PHP);
+    chmod($fake_codex, 0775);
+
     $config = new Config([
+        'codex' => [
+            'bin' => $fake_codex,
+            'cwd' => $tmp_root,
+        ],
         'limits' => [
             'primary_remaining_warning_percent' => 20,
             'secondary_remaining_warning_percent' => 10,
             'timezone' => 'Europe/Moscow',
         ],
+        'storage' => [
+            'root' => $tmp_root . '/var',
+        ],
     ]);
+
+    $app_server_provider = new CodexAppServerRateLimitsProvider($config);
+    $app_server_limits = $app_server_provider->read();
+    assertSame(85, $app_server_limits['primary']['usedPercent'] ?? null, 'app-server primary usage');
 
     $provider = new class implements RateLimitsProviderInterface {
         public int $reads = 0;
@@ -93,7 +137,34 @@ try {
     assertSame('final', $transport->messages[0]['kind'] ?? null, 'normal final kind');
     assertSame('warning', $transport->messages[1]['kind'] ?? null, 'automatic warning kind');
 
+    $transport->messages = [];
+    $paths = new RuntimePaths($config);
+    $watcher = new ControlWatcher(
+        $config,
+        new Logger($paths->logFile()),
+        new CommandRepository($config),
+        new ActiveTurnRegistry($paths->activeTurnFile()),
+        new JsonFileStore($paths->managerStateFile()),
+        $transport,
+        new TransportMessageIngress(new EventRepository($config)),
+        new CodexSessionCatalog(),
+        new WorkerShutdownFlag($config, 'control_queue', 'shutdown_flag', $paths->workerShutdownFlagFile('control_watcher')),
+        $monitor
+    );
+    $process_command = new ReflectionMethod(ControlWatcher::class, 'processTransportCommand');
+    $command_result = $process_command->invoke($watcher, [
+        'type' => 'transport_command',
+        'text' => '/limits',
+        'channel_id' => 'runtime-42',
+        'session_id' => 'runtime-42',
+    ]);
+    assertSame(true, $command_result['ok'] ?? null, '/limits command result');
+    assertSame('final', $transport->messages[0]['kind'] ?? null, '/limits command final');
+    assertSame('warning', $transport->messages[1]['kind'] ?? null, '/limits command warning');
+
     fwrite(STDOUT, "Limits monitoring smoke: OK\n");
+    unlink($fake_codex);
+    rmdir($tmp_root);
     exit(0);
 } catch (Throwable $e) {
     fwrite(STDERR, "Limits monitoring smoke failed: {$e->getMessage()}\n");

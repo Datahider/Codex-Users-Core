@@ -64,6 +64,20 @@ final class RouterDeliveryClient implements DeliveryClientInterface, TransportCl
         );
     }
 
+    public function sendWarning(int|string $chatId, string $text): array
+    {
+        $text = trim($text);
+        if ($text === '') {
+            throw new RuntimeException('Cannot send an empty warning');
+        }
+
+        return $this->retryUntilDelivered(
+            (string) $chatId,
+            'warning',
+            fn (): array => $this->sendOutbound((string) $chatId, 'warning', $text, [])
+        );
+    }
+
     public function sendHeartbeat(int|string $chatId): array
     {
         return $this->retryUntilDelivered(

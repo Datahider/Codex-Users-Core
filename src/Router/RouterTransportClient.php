@@ -39,6 +39,11 @@ final class RouterTransportClient implements TransportClientInterface
         return $this->delivery->sendTranscript($chatId, $text);
     }
 
+    public function sendWarning(int|string $chatId, string $text): array
+    {
+        return $this->delivery->sendWarning($chatId, $text);
+    }
+
     public function sendStatus(int|string $chatId, string $text, string $state, ?string $taskId = null): array
     {
         return $this->delivery->sendStatus($chatId, $text, $state, $taskId);

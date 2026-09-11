@@ -54,6 +54,15 @@ try {
     assertSame('transcript', $payload['kind'] ?? null, 'transcript kind');
     assertSame('recognized speech', $payload['text'] ?? null, 'transcript text');
 
+    $result = $delivery->sendWarning('runtime-42', 'limits low');
+    assertSame(true, $result['accepted'] ?? null, 'warning accepted');
+    $payload = json_decode((string) $http->body, true);
+    if (!is_array($payload)) {
+        throw new RuntimeException('Warning outbound payload is not valid JSON');
+    }
+    assertSame('warning', $payload['kind'] ?? null, 'warning kind');
+    assertSame('limits low', $payload['text'] ?? null, 'warning text');
+
     fwrite(STDOUT, "Router outbound smoke: OK\n");
     exit(0);
 } catch (Throwable $e) {

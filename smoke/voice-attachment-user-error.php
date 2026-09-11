@@ -11,9 +11,11 @@ use CodexRuntime\Attachment\VoiceAttachmentProcessor;
 use CodexRuntime\Audio\AudioTranscriberInterface;
 use CodexRuntime\CodexProcess;
 use CodexRuntime\Config;
+use CodexRuntime\Contracts\RateLimitsProviderInterface;
 use CodexRuntime\Contracts\TransportClientInterface;
 use CodexRuntime\JsonFileStore;
 use CodexRuntime\Logger;
+use CodexRuntime\LimitMonitor;
 use CodexRuntime\ManagerQueue\EventRepository;
 use CodexRuntime\ManagerWorker;
 use CodexRuntime\NoopStatusMessageService;
@@ -26,6 +28,11 @@ mkdir($tmp_root, 0775, true);
 try {
     $config = new Config([
         'codex' => ['bin' => 'codex', 'cwd' => '/home/web'],
+        'limits' => [
+            'primary_remaining_warning_percent' => 20,
+            'secondary_remaining_warning_percent' => 20,
+            'timezone' => 'Europe/Moscow',
+        ],
         'storage' => ['root' => $tmp_root],
     ]);
     $paths = new RuntimePaths($config);
@@ -46,6 +53,11 @@ try {
         public function sendTranscript(int|string $chatId, string $text): array
         {
             throw new RuntimeException('Unexpected transcript');
+        }
+
+        public function sendWarning(int|string $chatId, string $text): array
+        {
+            throw new RuntimeException('Unexpected warning');
         }
     };
     $voice_processor = new VoiceAttachmentProcessor(
@@ -71,7 +83,20 @@ try {
         new WorkerShutdownFlag($config, 'manager_queue', 'shutdown_flag', $paths->workerShutdownFlagFile('manager_worker')),
         $transport,
         new CodexProcess($config, new Logger($paths->logFile()), new ActiveTurnRegistry($paths->activeTurnFile())),
-        $voice_processor
+        $voice_processor,
+        new LimitMonitor(
+            $config,
+            new class implements RateLimitsProviderInterface {
+                public function read(): array
+                {
+                    return [
+                        'primary' => ['usedPercent' => 0, 'resetsAt' => 1789128302],
+                        'secondary' => ['usedPercent' => 0, 'resetsAt' => 1789458314],
+                    ];
+                }
+            },
+            $transport
+        )
     );
 
     $method = new ReflectionMethod(ManagerWorker::class, 'processUserMessage');

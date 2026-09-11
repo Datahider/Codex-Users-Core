@@ -24,7 +24,8 @@ final class ManagerWorker
         private WorkerShutdownFlag $shutdown,
         private TransportClientInterface $transport,
         private CodexProcess $codex,
-        private VoiceAttachmentProcessor $voice_attachments
+        private VoiceAttachmentProcessor $voice_attachments,
+        private LimitMonitor $limit_monitor
     ) {
     }
 
@@ -454,7 +455,9 @@ TEXT;
             return null;
         }
 
-        $message = $this->transport->sendMessage($sessionId, $text, $replyToMessageId, $parseMode, $disableNotification);
+        $message = $disableNotification
+            ? $this->transport->sendMessage($sessionId, $text, $replyToMessageId, $parseMode, true)
+            : $this->limit_monitor->sendFinal($sessionId, $text, $replyToMessageId, $parseMode);
 
         return isset($message['message_id']) ? (int) $message['message_id'] : null;
     }

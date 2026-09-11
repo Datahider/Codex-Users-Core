@@ -9,9 +9,11 @@ use CodexRuntime\Attachment\VoiceAttachmentProcessor;
 use CodexRuntime\Audio\AudioTranscriberInterface;
 use CodexRuntime\CodexProcess;
 use CodexRuntime\Config;
+use CodexRuntime\Contracts\RateLimitsProviderInterface;
 use CodexRuntime\Contracts\TransportClientInterface;
 use CodexRuntime\JsonFileStore;
 use CodexRuntime\Logger;
+use CodexRuntime\LimitMonitor;
 use CodexRuntime\ManagerQueue\EventRepository;
 use CodexRuntime\ManagerWorker;
 use CodexRuntime\NoopStatusMessageService;
@@ -63,6 +65,11 @@ SH);
         'storage' => [
             'root' => $tmpRoot . '/var',
         ],
+        'limits' => [
+            'primary_remaining_warning_percent' => 20,
+            'secondary_remaining_warning_percent' => 20,
+            'timezone' => 'Europe/Moscow',
+        ],
     ]);
 
     $paths = new RuntimePaths($config);
@@ -93,6 +100,11 @@ SH);
         {
             throw new RuntimeException('Unexpected transcript');
         }
+
+        public function sendWarning(int|string $chatId, string $text): array
+        {
+            throw new RuntimeException('Unexpected warning');
+        }
     };
 
     $worker = new ManagerWorker(
@@ -117,6 +129,19 @@ SH);
                     throw new RuntimeException('Unexpected audio transcription');
                 }
             }
+        ),
+        new LimitMonitor(
+            $config,
+            new class implements RateLimitsProviderInterface {
+                public function read(): array
+                {
+                    return [
+                        'primary' => ['usedPercent' => 0, 'resetsAt' => 1789128302],
+                        'secondary' => ['usedPercent' => 0, 'resetsAt' => 1789458314],
+                    ];
+                }
+            },
+            $transport
         )
     );
 

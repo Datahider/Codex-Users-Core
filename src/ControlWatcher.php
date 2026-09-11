@@ -23,7 +23,8 @@ final class ControlWatcher
         private TransportClientInterface $transport,
         private TransportMessageIngress $ingress,
         private CodexSessionCatalog $sessions,
-        private WorkerShutdownFlag $shutdown
+        private WorkerShutdownFlag $shutdown,
+        private LimitMonitor $limit_monitor
     ) {
     }
 
@@ -163,6 +164,19 @@ final class ControlWatcher
             return $this->processSessionCommand($command, $channelId, $sessionId, $text);
         }
 
+        if (preg_match('/^\/limits(?:@\S+)?(?:\s|$)/ui', $text)) {
+            $this->limit_monitor->sendCurrentLimits($sessionId);
+
+            return [
+                'ok' => true,
+                'stdout' => '',
+                'stderr' => '',
+                'command' => $command,
+                'channel_id' => $channelId,
+                'runtime_session_id' => $sessionId,
+            ];
+        }
+
         $eventId = $this->ingress->enqueueUserMessage(new TransportInboundMessage(
             channelId: $channelId,
             text: $text,
@@ -195,7 +209,7 @@ final class ControlWatcher
         unset($state['sessions'][$runtimeSessionId]);
         $this->stateStore->write($state);
 
-        $this->transport->sendMessage($runtimeSessionId, 'Текущая сессия сброшена.');
+        $this->limit_monitor->sendFinal($runtimeSessionId, 'Текущая сессия сброшена.');
 
         return [
             'ok' => true,
@@ -255,7 +269,7 @@ final class ControlWatcher
         $state['sessions'][$runtimeSessionId] = $sessionId;
         $this->stateStore->write($state);
 
-        $this->transport->sendMessage(
+        $this->limit_monitor->sendFinal(
             $runtimeSessionId,
             "Текущая сессия установлена:\n```\n{$sessionId}\n```"
         );
@@ -277,7 +291,7 @@ final class ControlWatcher
         $homeDirectory = trim((string) (getenv('HOME') ?: '/home/web'));
         $sessions = $this->sessions->listForHomeDirectory($homeDirectory);
         if ($sessions === []) {
-            $this->transport->sendMessage($runtimeSessionId, 'Для каталога ~ доступных сессий не найдено.');
+            $this->limit_monitor->sendFinal($runtimeSessionId, 'Для каталога ~ доступных сессий не найдено.');
             return;
         }
 
@@ -306,7 +320,7 @@ final class ControlWatcher
         }
 
         foreach ($chunks as $chunk) {
-            $this->transport->sendMessage($runtimeSessionId, $chunk);
+            $this->limit_monitor->sendFinal($runtimeSessionId, $chunk);
         }
     }
 

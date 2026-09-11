@@ -22,5 +22,10 @@ interface TransportClientInterface
      */
     public function sendTranscript(int|string $chatId, string $text): array;
 
+    /**
+     * @return array<string, mixed>
+     */
+    public function sendWarning(int|string $chatId, string $text): array;
+
     public function sendChatAction(int|string $chatId, string $action = 'typing'): void;
 }

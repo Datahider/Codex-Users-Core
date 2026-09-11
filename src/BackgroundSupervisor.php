@@ -120,8 +120,10 @@ use CodexRuntime\Audio\CurlTranscriptionHttpClient;
 use CodexRuntime\Audio\GptAudioTranscriber;
 use CodexRuntime\Config;
 use CodexRuntime\CodexProcess;
+use CodexRuntime\CodexAppServerRateLimitsProvider;
 use CodexRuntime\JsonFileStore;
 use CodexRuntime\Logger;
+use CodexRuntime\LimitMonitor;
 use CodexRuntime\ManagerQueue\EventRepository;
 use CodexRuntime\ManagerWorker;
 use CodexRuntime\Router\ApiClient;
@@ -153,7 +155,8 @@ $voiceAttachments = new VoiceAttachmentProcessor(
         new CurlTranscriptionHttpClient()
     )
 );
-$worker = new ManagerWorker($config, $logger, $events, $stateStore, $statusMessages, $shutdown, $transport, $codex, $voiceAttachments);
+$limitMonitor = new LimitMonitor($config, new CodexAppServerRateLimitsProvider($config), $transport);
+$worker = new ManagerWorker($config, $logger, $events, $stateStore, $statusMessages, $shutdown, $transport, $codex, $voiceAttachments, $limitMonitor);
 $worker->run();
 PHP,
             'router_ingress_worker' => <<<'PHP'
@@ -217,11 +220,13 @@ chdir(%s);
 require %s;
 use CodexRuntime\ActiveTurnRegistry;
 use CodexRuntime\CodexSessionCatalog;
+use CodexRuntime\CodexAppServerRateLimitsProvider;
 use CodexRuntime\Config;
 use CodexRuntime\ControlQueue\CommandRepository;
 use CodexRuntime\ControlWatcher;
 use CodexRuntime\JsonFileStore;
 use CodexRuntime\Logger;
+use CodexRuntime\LimitMonitor;
 use CodexRuntime\ManagerQueue\EventRepository;
 use CodexRuntime\Router\ApiClient;
 use CodexRuntime\Router\CurlHttpClient;
@@ -243,7 +248,8 @@ $transport = new RouterTransportClient(new ApiClient(
 $ingress = new TransportMessageIngress(new EventRepository($config));
 $sessions = new CodexSessionCatalog();
 $shutdown = new WorkerShutdownFlag($config, 'background', 'control_watcher_shutdown_flag_file', $paths->workerShutdownFlagFile('control_watcher'));
-$watcher = new ControlWatcher($config, $logger, $commands, $activeTurn, $stateStore, $transport, $ingress, $sessions, $shutdown);
+$limitMonitor = new LimitMonitor($config, new CodexAppServerRateLimitsProvider($config), $transport);
+$watcher = new ControlWatcher($config, $logger, $commands, $activeTurn, $stateStore, $transport, $ingress, $sessions, $shutdown, $limitMonitor);
 $watcher->run();
 PHP,
             'exec_watcher' => <<<'PHP'
