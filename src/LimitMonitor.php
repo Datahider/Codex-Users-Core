@@ -11,6 +11,9 @@ use RuntimeException;
 
 final class LimitMonitor
 {
+    private const DEFAULT_PRIMARY_WARNING_PERCENT = 5;
+    private const DEFAULT_SECONDARY_WARNING_PERCENT = 1;
+
     public function __construct(
         private Config $config,
         private RateLimitsProviderInterface $provider,
@@ -102,7 +105,11 @@ final class LimitMonitor
 
     private function threshold(string $key): int
     {
-        $threshold = $this->config->require('limits', $key);
+        $default = match ($key) {
+            'primary_remaining_warning_percent' => self::DEFAULT_PRIMARY_WARNING_PERCENT,
+            'secondary_remaining_warning_percent' => self::DEFAULT_SECONDARY_WARNING_PERCENT,
+        };
+        $threshold = $this->config->get('limits', $key, $default);
         if (!is_int($threshold) || $threshold < 0 || $threshold > 100) {
             throw new RuntimeException("Config value limits.{$key} must be an integer from 0 to 100");
         }
