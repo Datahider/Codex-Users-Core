@@ -44,6 +44,37 @@ cp config/config.example.php ~/.codex-users-core/config.php
 php bin/run-core.php
 ```
 
+## Установка tenant на рабочем сервере
+
+Операционный установщик запускается от пользователя `web`:
+
+```bash
+php bin/install-tenant.php /home/web/tmp/tenant.ini
+```
+
+Файл должен принадлежать запускающему пользователю и иметь ровно права `0600`:
+
+```ini
+username=natali
+telegram_chat_id=-1003979829950
+transcription_api_key=sk-...
+```
+
+Он обязан:
+
+- принять единственным параметром путь к INI-файлу;
+- отклонить нечитаемый файл, чужого владельца, права не `0600`, неизвестные или невалидные поля;
+- не передавать `transcription_api_key` в command-line arguments дочерних процессов;
+- создать Linux-пользователя штатной командой ограниченного sudo;
+- клонировать `Datahider/Codex-Users-Core` из remote в `/home/USERNAME/Codex-Users-Core`;
+- установить production Composer-зависимости;
+- создать персональный config с отдельным случайным `core_token`, переданным `transcription.api_key` и `--dangerously-bypass-approvals-and-sandbox`;
+- не копировать и не изменять Codex-авторизацию;
+- записать tenant и SHA-256 core token в production Router;
+- записать `TELEGRAM_CHAT_ID -> USERNAME` в production Transport-Telegram;
+- включить, перезапустить и проверить `codex-core@USERNAME.service`;
+- не маскировать ошибки и не выполнять fallback-действия.
+
 ## Bundled skills
 
 `Core` может хранить project-scoped skill source внутри `skills/`.
