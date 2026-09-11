@@ -11,6 +11,7 @@ use CodexRuntime\ControlQueue\CommandRepository;
 use CodexRuntime\ControlWatcher;
 use CodexRuntime\Contracts\RateLimitsProviderInterface;
 use CodexRuntime\Contracts\TransportClientInterface;
+use CodexRuntime\Contracts\ClockInterface;
 use CodexRuntime\JsonFileStore;
 use CodexRuntime\LimitMonitor;
 use CodexRuntime\Logger;
@@ -125,14 +126,21 @@ PHP);
         }
     };
 
-    $monitor = new LimitMonitor($config, $provider, $transport);
+    $clock = new class implements ClockInterface {
+        public function now(): int
+        {
+            return 1789110000;
+        }
+    };
+    $monitor = new LimitMonitor($config, $provider, $transport, $clock);
     $monitor->sendCurrentLimits('runtime-42');
 
     assertSame(1, $provider->reads, 'limits reads for /limits');
     assertSame(1, count($transport->messages), '/limits outbound count');
     assertSame('system', $transport->messages[0]['kind'] ?? null, '/limits response kind');
-    assertContains('5 часов  ██░░░░░░░░  15% · сброс 11.09.2026 15:05 MSK', $transport->messages[0]['text'] ?? '', 'primary status');
-    assertContains('7 дней  █░░░░░░░░░  11% · сброс 15.09.2026 10:45 MSK', $transport->messages[0]['text'] ?? '', 'secondary status');
+    assertContains("5 часов\n" . chr(96) . "███░░░░░░░░░░░░░░░░░" . chr(96) . " 15%\nСброс через 5 ч 5 мин", $transport->messages[0]['text'] ?? '', 'primary status');
+    assertContains("7 дней\n" . chr(96) . "██░░░░░░░░░░░░░░░░░░" . chr(96) . " 11%\nСброс через 4 д 45 мин", $transport->messages[0]['text'] ?? '', 'secondary status');
+    assertContains("мин\n\n7 дней", $transport->messages[0]['text'] ?? '', 'window spacing');
     assertContains('Тариф: Plus', $transport->messages[0]['text'] ?? '', 'plan status');
 
     $transport->messages = [];
@@ -141,7 +149,7 @@ PHP);
     assertSame(2, $provider->reads, 'limits reads after final');
     assertSame('final', $transport->messages[0]['kind'] ?? null, 'normal final kind');
     assertSame('warning', $transport->messages[1]['kind'] ?? null, 'automatic warning kind');
-    assertContains('5 часов  ██░░░░░░░░  15%', $transport->messages[1]['text'] ?? '', 'warning indicator');
+    assertContains("5 часов\n" . chr(96) . "███░░░░░░░░░░░░░░░░░" . chr(96) . ' 15%', $transport->messages[1]['text'] ?? '', 'warning indicator');
 
     $transport->messages = [];
     $paths = new RuntimePaths($config);
