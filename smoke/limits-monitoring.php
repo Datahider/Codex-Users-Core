@@ -131,8 +131,8 @@ PHP);
     assertSame(1, $provider->reads, 'limits reads for /limits');
     assertSame(1, count($transport->messages), '/limits outbound count');
     assertSame('system', $transport->messages[0]['kind'] ?? null, '/limits response kind');
-    assertContains('5 часов: осталось 15%', $transport->messages[0]['text'] ?? '', 'primary status');
-    assertContains('7 дней: осталось 11%', $transport->messages[0]['text'] ?? '', 'secondary status');
+    assertContains('5 часов  ██░░░░░░░░  15% · сброс 11.09.2026 15:05 MSK', $transport->messages[0]['text'] ?? '', 'primary status');
+    assertContains('7 дней  █░░░░░░░░░  11% · сброс 15.09.2026 10:45 MSK', $transport->messages[0]['text'] ?? '', 'secondary status');
     assertContains('Тариф: Plus', $transport->messages[0]['text'] ?? '', 'plan status');
 
     $transport->messages = [];
@@ -141,6 +141,7 @@ PHP);
     assertSame(2, $provider->reads, 'limits reads after final');
     assertSame('final', $transport->messages[0]['kind'] ?? null, 'normal final kind');
     assertSame('warning', $transport->messages[1]['kind'] ?? null, 'automatic warning kind');
+    assertContains('5 часов  ██░░░░░░░░  15%', $transport->messages[1]['text'] ?? '', 'warning indicator');
 
     $transport->messages = [];
     $paths = new RuntimePaths($config);
