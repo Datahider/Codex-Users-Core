@@ -13,6 +13,11 @@ return [
             '--json',
         ],
     ],
+    'limits' => [
+        'primary_remaining_warning_percent' => 20,
+        'secondary_remaining_warning_percent' => 20,
+        'timezone' => 'Europe/Moscow',
+    ],
     'router' => [
         'base_url' => 'https://cdx-router.botmeister.ru',
         'core_token' => '',

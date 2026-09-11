@@ -134,9 +134,41 @@ php smoke/doctor-ready-config.php
 - `transcript`
 - `heartbeat`
 - `status`
+- `warning`
 - `document`
 
 Как именно они рендерятся и доставляются, решает внешний transport-слой.
+
+## Контроль лимитов Codex
+
+Core читает ChatGPT-лимиты через JSON-RPC метод `account/rateLimits/read`
+процесса `codex app-server`.
+
+- transport-команда `/limits` не передаётся в manager queue; Core отвечает
+  outbound-сообщением `kind=final` с остатком 5-часового и недельного окон и
+  временем их сброса;
+- остаток окна вычисляется как `100 - usedPercent`;
+- после каждого отправленного Core outbound-сообщения `kind=final` Core заново
+  читает лимиты;
+- если остаток 5-часового окна строго меньше
+  `limits.primary_remaining_warning_percent` или остаток недельного окна строго
+  меньше `limits.secondary_remaining_warning_percent`, Core отправляет следом
+  отдельное outbound-сообщение `kind=warning`;
+- отсутствующее окно не участвует в проверке соответствующего порога;
+- ошибка запуска `codex app-server`, ошибка JSON-RPC, преждевременное завершение
+  процесса или некорректная структура ответа считаются ошибкой операции и не
+  маскируются;
+- `limits.timezone` задаёт часовой пояс времени сброса в пользовательском тексте.
+
+Минимальная конфигурация:
+
+```php
+'limits' => [
+    'primary_remaining_warning_percent' => 20,
+    'secondary_remaining_warning_percent' => 20,
+    'timezone' => 'Europe/Moscow',
+],
+```
 
 ### MCP tool `send_document`
 
