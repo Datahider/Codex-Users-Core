@@ -50,11 +50,6 @@ PHP);
             'bin' => $fake_codex,
             'cwd' => $tmp_root,
         ],
-        'limits' => [
-            'primary_remaining_warning_percent' => 20,
-            'secondary_remaining_warning_percent' => 10,
-            'timezone' => 'Europe/Moscow',
-        ],
         'storage' => [
             'root' => $tmp_root . '/var',
         ],
@@ -74,12 +69,12 @@ PHP);
             return [
                 'planType' => 'plus',
                 'primary' => [
-                    'usedPercent' => 85,
+                    'usedPercent' => 96,
                     'windowDurationMins' => 300,
                     'resetsAt' => 1789128302,
                 ],
                 'secondary' => [
-                    'usedPercent' => 89,
+                    'usedPercent' => 100,
                     'windowDurationMins' => 10080,
                     'resetsAt' => 1789458314,
                 ],
@@ -138,8 +133,8 @@ PHP);
     assertSame(1, $provider->reads, 'limits reads for /limits');
     assertSame(1, count($transport->messages), '/limits outbound count');
     assertSame('system', $transport->messages[0]['kind'] ?? null, '/limits response kind');
-    assertContains("5 часов\n" . chr(96) . "███░░░░░░░░░░░░░░░░░" . chr(96) . " 15%\nСброс через 5 ч 5 мин", $transport->messages[0]['text'] ?? '', 'primary status');
-    assertContains("7 дней\n" . chr(96) . "██░░░░░░░░░░░░░░░░░░" . chr(96) . " 11%\nСброс через 4 д 45 мин", $transport->messages[0]['text'] ?? '', 'secondary status');
+    assertContains("5 часов\n" . chr(96) . "█░░░░░░░░░░░░░░░░░░░" . chr(96) . " 4%\nСброс через 5 ч 5 мин", $transport->messages[0]['text'] ?? '', 'primary status');
+    assertContains("7 дней\n" . chr(96) . "░░░░░░░░░░░░░░░░░░░░" . chr(96) . " 0%\nСброс через 4 д 45 мин", $transport->messages[0]['text'] ?? '', 'secondary status');
     assertContains("мин\n\n7 дней", $transport->messages[0]['text'] ?? '', 'window spacing');
     assertContains('Тариф: Plus', $transport->messages[0]['text'] ?? '', 'plan status');
 
@@ -149,7 +144,8 @@ PHP);
     assertSame(2, $provider->reads, 'limits reads after final');
     assertSame('final', $transport->messages[0]['kind'] ?? null, 'normal final kind');
     assertSame('warning', $transport->messages[1]['kind'] ?? null, 'automatic warning kind');
-    assertContains("5 часов\n" . chr(96) . "███░░░░░░░░░░░░░░░░░" . chr(96) . ' 15%', $transport->messages[1]['text'] ?? '', 'warning indicator');
+    assertContains("5 часов\n" . chr(96) . "█░░░░░░░░░░░░░░░░░░░" . chr(96) . ' 4%', $transport->messages[1]['text'] ?? '', 'primary default warning threshold');
+    assertContains("7 дней\n" . chr(96) . "░░░░░░░░░░░░░░░░░░░░" . chr(96) . ' 0%', $transport->messages[1]['text'] ?? '', 'secondary default warning threshold');
 
     $transport->messages = [];
     $paths = new RuntimePaths($config);
