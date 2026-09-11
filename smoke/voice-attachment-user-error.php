@@ -59,6 +59,11 @@ try {
         {
             throw new RuntimeException('Unexpected warning');
         }
+
+        public function sendSystem(int|string $chatId, string $text): array
+        {
+            throw new RuntimeException('Unexpected system message');
+        }
     };
     $voice_processor = new VoiceAttachmentProcessor(
         new class implements AttachmentDownloaderInterface {

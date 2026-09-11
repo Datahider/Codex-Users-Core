@@ -25,8 +25,7 @@ final class LimitMonitor
     public function sendCurrentLimits(int|string $session_id): array
     {
         $limits = $this->provider->read();
-        $message = $this->transport->sendMessage($session_id, $this->formatStatus($limits));
-        $this->sendWarningIfNeeded($session_id, $limits);
+        $message = $this->transport->sendSystem($session_id, $this->formatStatus($limits));
 
         return $message;
     }

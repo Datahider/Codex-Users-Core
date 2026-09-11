@@ -209,7 +209,7 @@ final class ControlWatcher
         unset($state['sessions'][$runtimeSessionId]);
         $this->stateStore->write($state);
 
-        $this->limit_monitor->sendFinal($runtimeSessionId, 'Текущая сессия сброшена.');
+        $this->transport->sendSystem($runtimeSessionId, 'Текущая сессия сброшена.');
 
         return [
             'ok' => true,
@@ -269,7 +269,7 @@ final class ControlWatcher
         $state['sessions'][$runtimeSessionId] = $sessionId;
         $this->stateStore->write($state);
 
-        $this->limit_monitor->sendFinal(
+        $this->transport->sendSystem(
             $runtimeSessionId,
             "Текущая сессия установлена:\n```\n{$sessionId}\n```"
         );
@@ -291,7 +291,7 @@ final class ControlWatcher
         $homeDirectory = trim((string) (getenv('HOME') ?: '/home/web'));
         $sessions = $this->sessions->listForHomeDirectory($homeDirectory);
         if ($sessions === []) {
-            $this->limit_monitor->sendFinal($runtimeSessionId, 'Для каталога ~ доступных сессий не найдено.');
+            $this->transport->sendSystem($runtimeSessionId, 'Для каталога ~ доступных сессий не найдено.');
             return;
         }
 
@@ -320,7 +320,7 @@ final class ControlWatcher
         }
 
         foreach ($chunks as $chunk) {
-            $this->limit_monitor->sendFinal($runtimeSessionId, $chunk);
+            $this->transport->sendSystem($runtimeSessionId, $chunk);
         }
     }
 

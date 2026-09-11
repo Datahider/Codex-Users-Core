@@ -78,6 +78,20 @@ final class RouterDeliveryClient implements DeliveryClientInterface, TransportCl
         );
     }
 
+    public function sendSystem(int|string $chatId, string $text): array
+    {
+        $text = trim($text);
+        if ($text === '') {
+            throw new RuntimeException('Cannot send an empty system message');
+        }
+
+        return $this->retryUntilDelivered(
+            (string) $chatId,
+            'system',
+            fn (): array => $this->sendOutbound((string) $chatId, 'system', $text, [])
+        );
+    }
+
     public function sendHeartbeat(int|string $chatId): array
     {
         return $this->retryUntilDelivered(
