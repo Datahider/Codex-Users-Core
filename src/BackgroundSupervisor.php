@@ -124,6 +124,7 @@ use CodexRuntime\CodexAppServerRateLimitsProvider;
 use CodexRuntime\JsonFileStore;
 use CodexRuntime\Logger;
 use CodexRuntime\LimitMonitor;
+use CodexRuntime\SystemClock;
 use CodexRuntime\ManagerQueue\EventRepository;
 use CodexRuntime\ManagerWorker;
 use CodexRuntime\Router\ApiClient;
@@ -155,7 +156,7 @@ $voiceAttachments = new VoiceAttachmentProcessor(
         new CurlTranscriptionHttpClient()
     )
 );
-$limitMonitor = new LimitMonitor($config, new CodexAppServerRateLimitsProvider($config), $transport);
+$limitMonitor = new LimitMonitor($config, new CodexAppServerRateLimitsProvider($config), $transport, new SystemClock());
 $worker = new ManagerWorker($config, $logger, $events, $stateStore, $statusMessages, $shutdown, $transport, $codex, $voiceAttachments, $limitMonitor);
 $worker->run();
 PHP,
@@ -227,6 +228,7 @@ use CodexRuntime\ControlWatcher;
 use CodexRuntime\JsonFileStore;
 use CodexRuntime\Logger;
 use CodexRuntime\LimitMonitor;
+use CodexRuntime\SystemClock;
 use CodexRuntime\ManagerQueue\EventRepository;
 use CodexRuntime\Router\ApiClient;
 use CodexRuntime\Router\CurlHttpClient;
@@ -248,7 +250,7 @@ $transport = new RouterTransportClient(new ApiClient(
 $ingress = new TransportMessageIngress(new EventRepository($config));
 $sessions = new CodexSessionCatalog();
 $shutdown = new WorkerShutdownFlag($config, 'background', 'control_watcher_shutdown_flag_file', $paths->workerShutdownFlagFile('control_watcher'));
-$limitMonitor = new LimitMonitor($config, new CodexAppServerRateLimitsProvider($config), $transport);
+$limitMonitor = new LimitMonitor($config, new CodexAppServerRateLimitsProvider($config), $transport, new SystemClock());
 $watcher = new ControlWatcher($config, $logger, $commands, $activeTurn, $stateStore, $transport, $ingress, $sessions, $shutdown, $limitMonitor);
 $watcher->run();
 PHP,

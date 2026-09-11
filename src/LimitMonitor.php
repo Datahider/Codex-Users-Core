@@ -5,9 +5,8 @@ declare(strict_types=1);
 namespace CodexRuntime;
 
 use CodexRuntime\Contracts\RateLimitsProviderInterface;
+use CodexRuntime\Contracts\ClockInterface;
 use CodexRuntime\Contracts\TransportClientInterface;
-use DateTimeImmutable;
-use DateTimeZone;
 use RuntimeException;
 
 final class LimitMonitor
@@ -15,7 +14,8 @@ final class LimitMonitor
     public function __construct(
         private Config $config,
         private RateLimitsProviderInterface $provider,
-        private TransportClientInterface $transport
+        private TransportClientInterface $transport,
+        private ClockInterface $clock
     ) {
     }
 
@@ -56,21 +56,21 @@ final class LimitMonitor
      */
     private function formatStatus(array $limits): string
     {
-        $lines = ['Лимиты Codex:'];
+        $blocks = ['Лимиты Codex'];
         $primary = $this->window($limits, 'primary');
         $secondary = $this->window($limits, 'secondary');
         if ($primary !== null) {
-            $lines[] = $this->formatWindow('5 часов', $primary);
+            $blocks[] = $this->formatWindow('5 часов', $primary);
         }
         if ($secondary !== null) {
-            $lines[] = $this->formatWindow('7 дней', $secondary);
+            $blocks[] = $this->formatWindow('7 дней', $secondary);
         }
         $plan_type = trim((string) ($limits['planType'] ?? ''));
         if ($plan_type !== '') {
-            $lines[] = 'Тариф: ' . ucfirst($plan_type);
+            $blocks[] = 'Тариф: ' . ucfirst($plan_type);
         }
 
-        return implode("\n", $lines);
+        return implode("\n\n", $blocks);
     }
 
     /**
@@ -96,7 +96,7 @@ final class LimitMonitor
 
         $this->transport->sendWarning(
             $session_id,
-            "Внимание: заканчиваются лимиты Codex.\n" . implode("\n", $warnings)
+            "Внимание: заканчиваются лимиты Codex.\n\n" . implode("\n\n", $warnings)
         );
     }
 
@@ -140,22 +140,47 @@ final class LimitMonitor
      */
     private function formatWindow(string $label, array $window): string
     {
-        $timezone = new DateTimeZone((string) $this->config->require('limits', 'timezone'));
-        $reset = (new DateTimeImmutable('@' . (string) $window['resetsAt']))->setTimezone($timezone);
-
         return sprintf(
-            '%s  %s  %d%% · сброс %s',
+            "%s\n`%s` %d%%\n%s",
             $label,
             $this->progressBar($this->remaining($window)),
             $this->remaining($window),
-            $reset->format('d.m.Y H:i T')
+            $this->formatReset((int) $window['resetsAt'])
         );
     }
 
     private function progressBar(int $remaining_percent): string
     {
-        $filled = min(10, max(0, intdiv($remaining_percent + 5, 10)));
+        $filled = min(20, max(0, intdiv($remaining_percent + 2, 5)));
 
-        return str_repeat('█', $filled) . str_repeat('░', 10 - $filled);
+        return str_repeat('█', $filled) . str_repeat('░', 20 - $filled);
+    }
+
+    private function formatReset(int $resets_at): string
+    {
+        $remaining_seconds = $resets_at - $this->clock->now();
+        if ($remaining_seconds <= 0) {
+            return 'Сброс сейчас';
+        }
+        if ($remaining_seconds < 60) {
+            return 'Сброс менее чем через минуту';
+        }
+
+        $remaining_minutes = intdiv($remaining_seconds, 60);
+        $days = intdiv($remaining_minutes, 1440);
+        $hours = intdiv($remaining_minutes % 1440, 60);
+        $minutes = $remaining_minutes % 60;
+        $parts = [];
+        if ($days > 0) {
+            $parts[] = $days . ' д';
+        }
+        if ($hours > 0) {
+            $parts[] = $hours . ' ч';
+        }
+        if ($minutes > 0) {
+            $parts[] = $minutes . ' мин';
+        }
+
+        return 'Сброс через ' . implode(' ', $parts);
     }
 }

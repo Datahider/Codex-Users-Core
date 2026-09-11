@@ -20,6 +20,7 @@ use CodexRuntime\ManagerQueue\EventRepository;
 use CodexRuntime\ManagerWorker;
 use CodexRuntime\NoopStatusMessageService;
 use CodexRuntime\RuntimePaths;
+use CodexRuntime\SystemClock;
 use CodexRuntime\WorkerShutdownFlag;
 
 $tmp_root = sys_get_temp_dir() . '/core-voice-user-error-' . bin2hex(random_bytes(4));
@@ -100,7 +101,8 @@ try {
                     ];
                 }
             },
-            $transport
+            $transport,
+            new SystemClock()
         )
     );
 

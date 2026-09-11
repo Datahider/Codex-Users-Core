@@ -18,6 +18,7 @@ use CodexRuntime\ManagerQueue\EventRepository;
 use CodexRuntime\ManagerWorker;
 use CodexRuntime\NoopStatusMessageService;
 use CodexRuntime\RuntimePaths;
+use CodexRuntime\SystemClock;
 use CodexRuntime\WorkerShutdownFlag;
 
 require_once __DIR__ . '/../src/bootstrap.php';
@@ -146,7 +147,8 @@ SH);
                     ];
                 }
             },
-            $transport
+            $transport,
+            new SystemClock()
         )
     );
 
