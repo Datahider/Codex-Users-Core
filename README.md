@@ -170,7 +170,6 @@ Core читает ChatGPT-лимиты через JSON-RPC метод `account/r
 - ошибка запуска `codex app-server`, ошибка JSON-RPC, преждевременное завершение
   процесса или некорректная структура ответа считаются ошибкой операции и не
   маскируются;
-- `limits.timezone` задаёт часовой пояс времени сброса в пользовательском тексте.
 
 Минимальная конфигурация:
 
@@ -178,7 +177,6 @@ Core читает ChatGPT-лимиты через JSON-RPC метод `account/r
 'limits' => [
     'primary_remaining_warning_percent' => 20,
     'secondary_remaining_warning_percent' => 20,
-    'timezone' => 'Europe/Moscow',
 ],
 ```
 
