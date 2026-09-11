@@ -144,10 +144,18 @@ final class LimitMonitor
         $reset = (new DateTimeImmutable('@' . (string) $window['resetsAt']))->setTimezone($timezone);
 
         return sprintf(
-            '%s: осталось %d%%, сброс %s',
+            '%s  %s  %d%% · сброс %s',
             $label,
+            $this->progressBar($this->remaining($window)),
             $this->remaining($window),
             $reset->format('d.m.Y H:i T')
         );
+    }
+
+    private function progressBar(int $remaining_percent): string
+    {
+        $filled = min(10, max(0, intdiv($remaining_percent + 5, 10)));
+
+        return str_repeat('█', $filled) . str_repeat('░', 10 - $filled);
     }
 }
