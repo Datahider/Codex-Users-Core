@@ -63,6 +63,15 @@ try {
     assertSame('warning', $payload['kind'] ?? null, 'warning kind');
     assertSame('limits low', $payload['text'] ?? null, 'warning text');
 
+    $result = $delivery->sendSystem('runtime-42', 'session reset');
+    assertSame(true, $result['accepted'] ?? null, 'system accepted');
+    $payload = json_decode((string) $http->body, true);
+    if (!is_array($payload)) {
+        throw new RuntimeException('System outbound payload is not valid JSON');
+    }
+    assertSame('system', $payload['kind'] ?? null, 'system kind');
+    assertSame('session reset', $payload['text'] ?? null, 'system text');
+
     fwrite(STDOUT, "Router outbound smoke: OK\n");
     exit(0);
 } catch (Throwable $e) {

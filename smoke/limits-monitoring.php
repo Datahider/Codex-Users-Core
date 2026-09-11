@@ -108,6 +108,13 @@ PHP);
             return ['message_id' => count($this->messages)];
         }
 
+        public function sendSystem(int|string $chatId, string $text): array
+        {
+            $this->messages[] = ['kind' => 'system', 'text' => $text];
+
+            return ['message_id' => count($this->messages)];
+        }
+
         public function sendTranscript(int|string $chatId, string $text): array
         {
             throw new RuntimeException('Unexpected transcript');
@@ -122,13 +129,11 @@ PHP);
     $monitor->sendCurrentLimits('runtime-42');
 
     assertSame(1, $provider->reads, 'limits reads for /limits');
-    assertSame('final', $transport->messages[0]['kind'] ?? null, '/limits response kind');
+    assertSame(1, count($transport->messages), '/limits outbound count');
+    assertSame('system', $transport->messages[0]['kind'] ?? null, '/limits response kind');
     assertContains('5 часов: осталось 15%', $transport->messages[0]['text'] ?? '', 'primary status');
     assertContains('7 дней: осталось 11%', $transport->messages[0]['text'] ?? '', 'secondary status');
     assertContains('Тариф: Plus', $transport->messages[0]['text'] ?? '', 'plan status');
-    assertSame('warning', $transport->messages[1]['kind'] ?? null, '/limits warning kind');
-    assertContains('5 часов: осталось 15%', $transport->messages[1]['text'] ?? '', 'primary warning');
-    assertNotContains('7 дней', $transport->messages[1]['text'] ?? '', 'secondary threshold is strict');
 
     $transport->messages = [];
     $monitor->sendFinal('runtime-42', 'Готово.');
@@ -159,8 +164,8 @@ PHP);
         'session_id' => 'runtime-42',
     ]);
     assertSame(true, $command_result['ok'] ?? null, '/limits command result');
-    assertSame('final', $transport->messages[0]['kind'] ?? null, '/limits command final');
-    assertSame('warning', $transport->messages[1]['kind'] ?? null, '/limits command warning');
+    assertSame(1, count($transport->messages), '/limits command outbound count');
+    assertSame('system', $transport->messages[0]['kind'] ?? null, '/limits command system');
 
     fwrite(STDOUT, "Limits monitoring smoke: OK\n");
     unlink($fake_codex);
