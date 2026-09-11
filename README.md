@@ -163,8 +163,8 @@ Core читает ChatGPT-лимиты через JSON-RPC метод `account/r
 - после `kind=system`, включая `/limits`, Core лимиты повторно не проверяет и
   `kind=warning` не отправляет;
 - если остаток 5-часового окна строго меньше
-  `limits.primary_remaining_warning_percent` или остаток недельного окна строго
-  меньше `limits.secondary_remaining_warning_percent`, Core отправляет следом
+  `limits.primary_remaining_warning_percent` (по умолчанию `5`) или остаток недельного окна строго
+  меньше `limits.secondary_remaining_warning_percent` (по умолчанию `1`), Core отправляет следом
   отдельное outbound-сообщение `kind=warning`;
 - отсутствующее окно не участвует в проверке соответствующего порога;
 - ошибка запуска `codex app-server`, ошибка JSON-RPC, преждевременное завершение
@@ -175,8 +175,8 @@ Core читает ChatGPT-лимиты через JSON-RPC метод `account/r
 
 ```php
 'limits' => [
-    'primary_remaining_warning_percent' => 20,
-    'secondary_remaining_warning_percent' => 20,
+    // 'primary_remaining_warning_percent' => 5,
+    // 'secondary_remaining_warning_percent' => 1,
 ],
 ```
 
