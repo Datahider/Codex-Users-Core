@@ -180,13 +180,14 @@ Core читает ChatGPT-лимиты через JSON-RPC метод `account/r
 ],
 ```
 
-### MCP tool `send_document`
+### MCP tools исходящих файлов
 
 Core подключает к каждому `codex exec` локальный STDIO MCP-сервер `bin/mcp-server.php`.
-Сервер публикует tool:
+Сервер публикует tools:
 
 ```text
 send_document(path: string, caption?: string)
+send_image(path: string, caption?: string)
 ```
 
 - `path` — абсолютный путь к читаемому regular file.
@@ -196,6 +197,8 @@ send_document(path: string, caption?: string)
 - после загрузки Core отправляет в Router `kind=document`, пустой или равный `caption` текст и ровно одно attachment.
 - attachment содержит `file_id`, `url`, `name`, `mime` и `size_bytes` из фактического файла/ответа файлообменника.
 - любая ошибка проверки, загрузки или Router delivery завершает tool ошибкой.
+- `send_image` принимает только JPEG, PNG и WEBP размером не больше 10 МБ.
+- после загрузки `send_image` отправляет в Router `kind=image` с тем же форматом attachment.
 
 Для `ManagerWorker` это значит следующее:
 
