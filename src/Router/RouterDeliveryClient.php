@@ -118,6 +118,20 @@ final class RouterDeliveryClient implements DeliveryClientInterface, TransportCl
         );
     }
 
+    /** @param list<array<string, mixed>> $attachments @return array<string, mixed> */
+    public function sendImage(int|string $chatId, string $caption, array $attachments): array
+    {
+        if (count($attachments) !== 1) {
+            throw new RuntimeException('Image outbound requires exactly one attachment');
+        }
+
+        return $this->retryUntilDelivered(
+            (string) $chatId,
+            'image',
+            fn (): array => $this->sendOutbound((string) $chatId, 'image', $caption, [], $attachments)
+        );
+    }
+
     public function sendStatus(int|string $chatId, string $text, string $state, ?string $taskId = null): array
     {
         $meta = [

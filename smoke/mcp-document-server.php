@@ -45,7 +45,7 @@ fwrite($input, json_encode([
 ]) . "\n");
 rewind($input);
 
-(new StdioServer($tool))->run($input, $output);
+(new StdioServer($tool, $tool))->run($input, $output);
 rewind($output);
 $responses = array_map(static fn (string $line): array => json_decode($line, true), array_values(array_filter(array_map('trim', explode("\n", stream_get_contents($output))))));
 

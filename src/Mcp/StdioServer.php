@@ -9,7 +9,10 @@ use Throwable;
 
 final class StdioServer
 {
-    public function __construct(private DocumentToolInterface $document_tool)
+    public function __construct(
+        private DocumentToolInterface $document_tool,
+        private ImageToolInterface $image_tool
+    )
     {
     }
 
@@ -72,12 +75,25 @@ final class StdioServer
                     'required' => ['path'],
                     'additionalProperties' => false,
                 ],
+            ], [
+                'name' => 'send_image',
+                'description' => 'Send a local JPEG, PNG or WEBP image to the current runtime chat.',
+                'inputSchema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'path' => ['type' => 'string', 'description' => 'Absolute local image path'],
+                        'caption' => ['type' => 'string', 'description' => 'Optional image caption'],
+                    ],
+                    'required' => ['path'],
+                    'additionalProperties' => false,
+                ],
             ]]];
         }
 
         if ($method === 'tools/call') {
             $params = is_array($request['params'] ?? null) ? $request['params'] : [];
-            if (($params['name'] ?? null) !== 'send_document') {
+            $name = (string) ($params['name'] ?? '');
+            if (!in_array($name, ['send_document', 'send_image'], true)) {
                 throw new RuntimeException('Unknown MCP tool');
             }
             $arguments = is_array($params['arguments'] ?? null) ? $params['arguments'] : [];
@@ -85,7 +101,10 @@ final class StdioServer
             if ($path === '') {
                 throw new RuntimeException('send_document path is required');
             }
-            $result = $this->document_tool->sendDocument($path, (string) ($arguments['caption'] ?? ''));
+            $caption = (string) ($arguments['caption'] ?? '');
+            $result = $name === 'send_document'
+                ? $this->document_tool->sendDocument($path, $caption)
+                : $this->image_tool->sendImage($path, $caption);
 
             return [
                 'content' => [['type' => 'text', 'text' => (string) json_encode($result, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)]],
