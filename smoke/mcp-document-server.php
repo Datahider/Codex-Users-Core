@@ -4,14 +4,22 @@
 declare(strict_types=1);
 
 use CodexRuntime\Mcp\DocumentToolInterface;
+use CodexRuntime\Mcp\ImageToolInterface;
 use CodexRuntime\Mcp\StdioServer;
 
 require_once __DIR__ . '/../src/bootstrap.php';
 
-$tool = new class implements DocumentToolInterface {
+$tool = new class implements DocumentToolInterface, ImageToolInterface {
     public array $calls = [];
 
     public function sendDocument(string $path, string $caption = ''): array
+    {
+        $this->calls[] = [$path, $caption];
+
+        return ['delivered' => true, 'filename' => basename($path)];
+    }
+
+    public function sendImage(string $path, string $caption = ''): array
     {
         $this->calls[] = [$path, $caption];
 
@@ -29,6 +37,12 @@ fwrite($input, json_encode([
     'method' => 'tools/call',
     'params' => ['name' => 'send_document', 'arguments' => ['path' => '/tmp/report.pdf', 'caption' => 'Report']],
 ]) . "\n");
+fwrite($input, json_encode([
+    'jsonrpc' => '2.0',
+    'id' => 4,
+    'method' => 'tools/call',
+    'params' => ['name' => 'send_image', 'arguments' => ['path' => '/tmp/pixel.png', 'caption' => 'Pixel']],
+]) . "\n");
 rewind($input);
 
 (new StdioServer($tool))->run($input, $output);
@@ -37,9 +51,11 @@ $responses = array_map(static fn (string $line): array => json_decode($line, tru
 
 assertSame('2025-06-18', $responses[0]['result']['protocolVersion'] ?? null, 'protocol version');
 assertSame('send_document', $responses[1]['result']['tools'][0]['name'] ?? null, 'tool name');
+assertSame('send_image', $responses[1]['result']['tools'][1]['name'] ?? null, 'image tool name');
 assertSame('object', $responses[1]['result']['tools'][0]['inputSchema']['type'] ?? null, 'tool schema');
-assertSame([['/tmp/report.pdf', 'Report']], $tool->calls, 'tool call');
+assertSame([['/tmp/report.pdf', 'Report'], ['/tmp/pixel.png', 'Pixel']], $tool->calls, 'tool calls');
 assertSame(false, $responses[2]['result']['isError'] ?? null, 'tool result');
+assertSame(false, $responses[3]['result']['isError'] ?? null, 'image tool result');
 
 fwrite(STDOUT, "MCP document server smoke: OK\n");
 

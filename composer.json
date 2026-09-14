@@ -17,6 +17,7 @@
             "php smoke/gpt-audio-transcriber.php",
             "php smoke/files-ioannidis-attachment-downloader.php",
             "php smoke/document-outbound.php",
+            "php smoke/image-outbound.php",
             "php smoke/mcp-document-server.php",
             "php smoke/voice-attachment-processing.php",
             "php smoke/voice-attachment-user-error.php",
