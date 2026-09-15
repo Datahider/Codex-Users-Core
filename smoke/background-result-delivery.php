@@ -5,6 +5,7 @@ declare(strict_types=1);
 
 use CodexRuntime\ActiveTurnRegistry;
 use CodexRuntime\Attachment\AttachmentDownloaderInterface;
+use CodexRuntime\Attachment\InboundAttachmentLocalizer;
 use CodexRuntime\Attachment\VoiceAttachmentProcessor;
 use CodexRuntime\Audio\AudioTranscriberInterface;
 use CodexRuntime\CodexProcess;
@@ -136,6 +137,12 @@ SH);
                 }
             }
         ),
+        new InboundAttachmentLocalizer(new class implements AttachmentDownloaderInterface {
+            public function download(string $url, ?string $filename = null): string
+            {
+                throw new RuntimeException('Unexpected attachment download');
+            }
+        }),
         new LimitMonitor(
             $config,
             new class implements RateLimitsProviderInterface {

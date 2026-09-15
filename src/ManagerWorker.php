@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace CodexRuntime;
 
+use CodexRuntime\Attachment\InboundAttachmentLocalizer;
 use CodexRuntime\Attachment\VoiceAttachmentProcessor;
 use CodexRuntime\Contracts\StatusMessageServiceInterface;
 use CodexRuntime\Contracts\TransportClientInterface;
@@ -25,6 +26,7 @@ final class ManagerWorker
         private TransportClientInterface $transport,
         private CodexProcess $codex,
         private VoiceAttachmentProcessor $voice_attachments,
+        private InboundAttachmentLocalizer $attachment_localizer,
         private LimitMonitor $limit_monitor
     ) {
     }
@@ -135,10 +137,12 @@ final class ManagerWorker
         if ($processed['transcript'] !== '') {
             $this->transport->sendTranscript($runtimeSessionId, $processed['transcript']);
         }
-        $text = AttachmentPromptFormatter::prependAttachments($processed['text'], $processed['attachments']);
-        if ($text === '') {
-            throw new RuntimeException('Empty text for user_message');
-        }
+        $localized = $this->attachment_localizer->localize($processed['attachments']);
+        try {
+            $text = AttachmentPromptFormatter::prependAttachments($processed['text'], $localized['attachments']);
+            if ($text === '') {
+                throw new RuntimeException('Empty text for user_message');
+            }
 
         $state = $this->readManagerState();
         $codexSessionId = $this->resolveCodexSessionId($state, $runtimeSessionId);
@@ -189,14 +193,17 @@ final class ManagerWorker
 
         $this->sendMessage($runtimeSessionId, $finalText, null, null);
 
-        return [
-            'ok' => (($result['exit_code'] ?? 1) === 0),
-            'stdout' => $finalText,
-            'stderr' => (string) ($result['stderr'] ?? ''),
-            'session_id' => $runtimeSessionId,
-            'codex_session_id' => $finalCodexSessionId,
-            'event_type' => 'user_message',
-        ];
+            return [
+                'ok' => (($result['exit_code'] ?? 1) === 0),
+                'stdout' => $finalText,
+                'stderr' => (string) ($result['stderr'] ?? ''),
+                'session_id' => $runtimeSessionId,
+                'codex_session_id' => $finalCodexSessionId,
+                'event_type' => 'user_message',
+            ];
+        } finally {
+            $this->attachment_localizer->cleanup($localized['file_paths']);
+        }
     }
 
     private function processScheduledPrompt(array $event): array

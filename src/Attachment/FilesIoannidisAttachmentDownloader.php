@@ -30,9 +30,9 @@ final class FilesIoannidisAttachmentDownloader implements AttachmentDownloaderIn
             throw new RuntimeException('Invalid files.ioannidis.ru attachment URL');
         }
 
-        $file_path = tempnam(sys_get_temp_dir(), 'core-voice-');
+        $file_path = tempnam(sys_get_temp_dir(), 'core-attachment-');
         if ($file_path === false) {
-            throw new RuntimeException('Cannot create temporary voice file');
+            throw new RuntimeException('Cannot create temporary attachment file');
         }
 
         $extension = strtolower((string) pathinfo((string) $filename, PATHINFO_EXTENSION));
@@ -40,7 +40,7 @@ final class FilesIoannidisAttachmentDownloader implements AttachmentDownloaderIn
             $file_path_with_extension = $file_path . '.' . $extension;
             if (!rename($file_path, $file_path_with_extension)) {
                 unlink($file_path);
-                throw new RuntimeException('Cannot preserve temporary voice file extension');
+                throw new RuntimeException('Cannot preserve temporary attachment file extension');
             }
             $file_path = $file_path_with_extension;
         }

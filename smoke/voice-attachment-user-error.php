@@ -7,6 +7,7 @@ require __DIR__ . '/../src/bootstrap.php';
 
 use CodexRuntime\ActiveTurnRegistry;
 use CodexRuntime\Attachment\AttachmentDownloaderInterface;
+use CodexRuntime\Attachment\InboundAttachmentLocalizer;
 use CodexRuntime\Attachment\VoiceAttachmentProcessor;
 use CodexRuntime\Audio\AudioTranscriberInterface;
 use CodexRuntime\CodexProcess;
@@ -90,6 +91,12 @@ try {
         $transport,
         new CodexProcess($config, new Logger($paths->logFile()), new ActiveTurnRegistry($paths->activeTurnFile())),
         $voice_processor,
+        new InboundAttachmentLocalizer(new class implements AttachmentDownloaderInterface {
+            public function download(string $url, ?string $filename = null): string
+            {
+                throw new RuntimeException('Unexpected non-voice attachment download');
+            }
+        }),
         new LimitMonitor(
             $config,
             new class implements RateLimitsProviderInterface {

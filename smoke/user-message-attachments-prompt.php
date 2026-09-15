@@ -10,6 +10,7 @@ require_once __DIR__ . '/../src/bootstrap.php';
 try {
     $attachments = [
         [
+            'local_path' => '/tmp/files-verify-kccq.txt',
             'url' => 'https://files.ioannidis.ru/GPVn',
             'type' => 'document',
             'name' => 'files-verify-kccq.txt',
@@ -23,7 +24,7 @@ try {
     $actual = AttachmentPromptFormatter::prependAttachments('Проверка загрузки файла', $attachments);
     $expected = <<<TEXT
 Вот файл(ы):
-- url: https://files.ioannidis.ru/GPVn; type: document; name: files-verify-kccq.txt; size_bytes: 37
+- local_path: /tmp/files-verify-kccq.txt; url: https://files.ioannidis.ru/GPVn; type: document; name: files-verify-kccq.txt; size_bytes: 37
 - url: https://files.ioannidis.ru/AbCd
 
 Проверка загрузки файла

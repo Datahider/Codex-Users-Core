@@ -43,7 +43,7 @@ final class AttachmentPromptFormatter
     private static function buildAttachmentLine(array $attachment): ?string
     {
         $parts = [];
-        foreach (['url', 'type', 'name', 'mime', 'size_bytes', 'source', 'expires_at'] as $key) {
+        foreach (['local_path', 'url', 'type', 'name', 'mime', 'size_bytes', 'source', 'expires_at'] as $key) {
             if (!array_key_exists($key, $attachment)) {
                 continue;
             }

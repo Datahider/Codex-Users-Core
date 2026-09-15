@@ -116,6 +116,7 @@ use CodexRuntime\ActiveTurnRegistry;
 use CodexRuntime\Attachment\CurlFileDownloadHttpClient;
 use CodexRuntime\Attachment\FilesIoannidisAttachmentDownloader;
 use CodexRuntime\Attachment\VoiceAttachmentProcessor;
+use CodexRuntime\Attachment\InboundAttachmentLocalizer;
 use CodexRuntime\Audio\CurlTranscriptionHttpClient;
 use CodexRuntime\Audio\GptAudioTranscriber;
 use CodexRuntime\Config;
@@ -148,16 +149,18 @@ $statusMessages = new RouterStatusMessageService($config, $transport);
 $shutdown = new WorkerShutdownFlag($config, 'background', 'manager_worker_shutdown_flag_file', $paths->workerShutdownFlagFile('manager_worker'));
 $activeTurn = new ActiveTurnRegistry($paths->activeTurnFile());
 $codex = new CodexProcess($config, $logger, $activeTurn, $configPath);
+$attachmentDownloader = new FilesIoannidisAttachmentDownloader(new CurlFileDownloadHttpClient());
 $voiceAttachments = new VoiceAttachmentProcessor(
-    new FilesIoannidisAttachmentDownloader(new CurlFileDownloadHttpClient()),
+    $attachmentDownloader,
     new GptAudioTranscriber(
         (string) $config->require('transcription', 'api_key'),
         (string) $config->require('transcription', 'model'),
         new CurlTranscriptionHttpClient()
     )
 );
+$attachmentLocalizer = new InboundAttachmentLocalizer($attachmentDownloader);
 $limitMonitor = new LimitMonitor($config, new CodexAppServerRateLimitsProvider($config), $transport, new SystemClock());
-$worker = new ManagerWorker($config, $logger, $events, $stateStore, $statusMessages, $shutdown, $transport, $codex, $voiceAttachments, $limitMonitor);
+$worker = new ManagerWorker($config, $logger, $events, $stateStore, $statusMessages, $shutdown, $transport, $codex, $voiceAttachments, $attachmentLocalizer, $limitMonitor);
 $worker->run();
 PHP,
             'router_ingress_worker' => <<<'PHP'
