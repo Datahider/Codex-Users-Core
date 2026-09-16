@@ -71,7 +71,7 @@ try {
     );
     assertSame(3, count($synthesizer->calls), 'catalog samples synthesized');
     assertSame(
-        ['<code>/voice cedar</code>', '<code>/voice marin</code>', '<code>/voice nova</code>'],
+        ['`/voice cedar`', '`/voice marin`', '`/voice nova`'],
         array_column($sender->calls, 'caption'),
         'copyable captions'
     );
