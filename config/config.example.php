@@ -30,7 +30,6 @@ return [
         'model' => 'gpt-transcribe',
     ],
     'speech' => [
-        'api_key' => '',
         'model' => 'gpt-4o-mini-tts',
     ],
     'voice_response' => [

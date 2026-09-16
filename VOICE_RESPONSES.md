@@ -112,10 +112,11 @@ or failure.
     ],
 ],
 'speech' => [
-    'api_key' => '',
     'model' => 'gpt-4o-mini-tts',
 ],
 ```
+
+Speech generation uses the same OpenAI API key as `transcription.api_key`.
 
 `default_voice` must occur in the non-empty `allowed_voices` list. Unknown and
 disallowed voice names fail explicitly. Voice names are compared exactly after

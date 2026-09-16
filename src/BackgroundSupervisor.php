@@ -175,7 +175,7 @@ $limitMonitor = new LimitMonitor($config, new CodexAppServerRateLimitsProvider($
 $allowedVoices = $config->requireList('voice_response', 'allowed_voices');
 $preference = new VoicePreferenceStore($paths->voicePreferenceFile(), (string) $config->require('voice_response', 'default_voice'), array_map('strval', $allowedVoices));
 $synthesizer = new OpenAiSpeechSynthesizer(
-    (string) $config->require('speech', 'api_key'),
+    (string) $config->require('transcription', 'api_key'),
     (string) $config->require('speech', 'model'),
     $paths->tmpDir(),
     new CurlSpeechHttpClient()
@@ -301,7 +301,7 @@ $limitMonitor = new LimitMonitor($config, new CodexAppServerRateLimitsProvider($
 $allowedVoices = $config->requireList('voice_response', 'allowed_voices');
 $preference = new VoicePreferenceStore($paths->voicePreferenceFile(), (string) $config->require('voice_response', 'default_voice'), array_map('strval', $allowedVoices));
 $synthesizer = new OpenAiSpeechSynthesizer(
-    (string) $config->require('speech', 'api_key'),
+    (string) $config->require('transcription', 'api_key'),
     (string) $config->require('speech', 'model'),
     $paths->tmpDir(),
     new CurlSpeechHttpClient()

@@ -72,7 +72,6 @@ Source of truth для таких skills находится внутри дер�
 - `router.core_token`
 - `transcription.api_key`
 - `transcription.model`
-- `speech.api_key`
 - `speech.model`
 - `voice_response.default_voice`
 - `voice_response.allowed_voices`

@@ -63,9 +63,6 @@ final class RuntimeDoctor
             $issues[] = 'transcription.model is empty';
         }
 
-        if (trim((string) $config->get('speech', 'api_key', '')) === '') {
-            $issues[] = 'speech.api_key is empty';
-        }
         if (trim((string) $config->get('speech', 'model', '')) === '') {
             $issues[] = 'speech.model is empty';
         }
