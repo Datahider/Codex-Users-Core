@@ -132,8 +132,8 @@ voice.
 Core handles these transport commands without forwarding them to Codex:
 
 - `/voices` — emits one `kind=voice` sample for every allowed voice. Each sample
-  has the HTML inline-code caption `<code>/voice name</code>` so Telegram copies
-  the complete command on tap instead of executing an empty `/voice` command;
+  has the Markdown inline-code caption `` `/voice name` `` so a transport can
+  render it as a copyable complete command;
 - `/voice` — returns the currently selected voice;
 - `/voice <name>` — validates and persists the voice, then returns
   `Выбран голос: <name>.` as `kind=system` without emitting another sample.
