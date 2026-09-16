@@ -20,6 +20,7 @@
             "php smoke/document-outbound.php",
             "php smoke/image-outbound.php",
             "php smoke/mcp-document-server.php",
+            "php smoke/voice-final-planning.php",
             "php smoke/voice-attachment-processing.php",
             "php smoke/voice-attachment-user-error.php",
             "php smoke/limits-monitoring.php"

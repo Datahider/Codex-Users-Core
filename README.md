@@ -137,8 +137,12 @@ php smoke/doctor-ready-config.php
 - `warning`
 - `system`
 - `document`
+- `voice`
 
 Как именно они рендерятся и доставляются, решает внешний transport-слой.
+
+Контракт режимов `text`/`voice`, текстовых предохранителей, Luna-классификации
+и `kind=voice` определён в [VOICE_RESPONSES.md](./VOICE_RESPONSES.md).
 
 ## Контроль лимитов Codex
 
