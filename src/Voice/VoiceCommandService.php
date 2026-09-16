@@ -30,7 +30,11 @@ final class VoiceCommandService implements VoiceCommandServiceInterface
         $command = trim($command);
         if (preg_match('/^\/voices(?:@\S+)?$/ui', $command) === 1) {
             foreach ($this->preference->allowed() as $index => $voice) {
-                $this->sender->send($runtime_session_id, $this->sample($voice, $index), "/voice {$voice}");
+                $this->sender->send(
+                    $runtime_session_id,
+                    $this->sample($voice, $index),
+                    "<code>/voice {$voice}</code>"
+                );
             }
 
             return '';
