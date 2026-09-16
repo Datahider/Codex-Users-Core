@@ -242,9 +242,10 @@ final class CodexProcess
                 'mcp_servers.codex_runtime.args=' . json_encode([$mcp_server], JSON_UNESCAPED_SLASHES),
                 'mcp_servers.codex_runtime.env_vars=["RUNTIME_SID","CODEX_CORE_CONFIG"]',
                 'mcp_servers.codex_runtime.required=true',
-                'mcp_servers.codex_runtime.enabled_tools=["send_document","send_image"]',
+                'mcp_servers.codex_runtime.enabled_tools=["send_document","send_image","set_response_delivery"]',
                 'mcp_servers.codex_runtime.tools.send_document.approval_mode="approve"',
                 'mcp_servers.codex_runtime.tools.send_image.approval_mode="approve"',
+                'mcp_servers.codex_runtime.tools.set_response_delivery.approval_mode="approve"',
             ];
             foreach ($overrides as $override) {
                 $command[] = '-c';

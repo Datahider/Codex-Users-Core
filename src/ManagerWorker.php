@@ -8,6 +8,7 @@ use CodexRuntime\Attachment\InboundAttachmentLocalizer;
 use CodexRuntime\Attachment\VoiceAttachmentProcessor;
 use CodexRuntime\Contracts\StatusMessageServiceInterface;
 use CodexRuntime\Contracts\TransportClientInterface;
+use CodexRuntime\Contracts\FinalResponseDeliveryInterface;
 use CodexRuntime\ManagerQueue\EventRepository;
 use RuntimeException;
 use Throwable;
@@ -27,7 +28,8 @@ final class ManagerWorker
         private CodexProcess $codex,
         private VoiceAttachmentProcessor $voice_attachments,
         private InboundAttachmentLocalizer $attachment_localizer,
-        private LimitMonitor $limit_monitor
+        private LimitMonitor $limit_monitor,
+        private FinalResponseDeliveryInterface $final_delivery
     ) {
     }
 
@@ -190,7 +192,7 @@ final class ManagerWorker
             $finalText = 'Пустой ответ от Codex.';
         }
 
-        $this->sendMessage($runtimeSessionId, $finalText, null, null);
+        $this->final_delivery->send($runtimeSessionId, $finalText);
 
         return [
                 'ok' => (($result['exit_code'] ?? 1) === 0),
@@ -246,7 +248,7 @@ final class ManagerWorker
             $finalText = 'Пустой ответ от Codex.';
         }
 
-        $this->sendMessage($runtimeSessionId, $finalText, null, null);
+        $this->final_delivery->send($runtimeSessionId, $finalText);
 
         return [
             'ok' => (($result['exit_code'] ?? 1) === 0),
@@ -304,7 +306,7 @@ final class ManagerWorker
             );
         }
 
-        $this->sendMessage($runtimeSessionId, $finalText, null, null);
+        $this->final_delivery->send($runtimeSessionId, $finalText);
 
         return [
             'ok' => (($result['exit_code'] ?? 1) === 0),

@@ -132,6 +132,20 @@ final class RouterDeliveryClient implements DeliveryClientInterface, TransportCl
         );
     }
 
+    /** @param list<array<string, mixed>> $attachments @return array<string, mixed> */
+    public function sendVoice(int|string $chatId, array $attachments): array
+    {
+        if (count($attachments) !== 1) {
+            throw new RuntimeException('Voice outbound requires exactly one attachment');
+        }
+
+        return $this->retryUntilDelivered(
+            (string) $chatId,
+            'voice',
+            fn (): array => $this->sendOutbound((string) $chatId, 'voice', '', [], $attachments)
+        );
+    }
+
     public function sendStatus(int|string $chatId, string $text, string $state, ?string $taskId = null): array
     {
         $meta = [

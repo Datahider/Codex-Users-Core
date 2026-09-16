@@ -9,6 +9,7 @@ use CodexRuntime\Contracts\TransportClientInterface;
 use DateTimeImmutable;
 use RuntimeException;
 use Throwable;
+use CodexRuntime\Voice\VoiceCommandServiceInterface;
 
 final class ControlWatcher
 {
@@ -24,7 +25,8 @@ final class ControlWatcher
         private TransportMessageIngress $ingress,
         private CodexSessionCatalog $sessions,
         private WorkerShutdownFlag $shutdown,
-        private LimitMonitor $limit_monitor
+        private LimitMonitor $limit_monitor,
+        private VoiceCommandServiceInterface $voice_commands
     ) {
     }
 
@@ -166,6 +168,20 @@ final class ControlWatcher
 
         if (preg_match('/^\/limits(?:@\S+)?(?:\s|$)/ui', $text)) {
             $this->limit_monitor->sendCurrentLimits($sessionId);
+
+            return [
+                'ok' => true,
+                'stdout' => '',
+                'stderr' => '',
+                'command' => $command,
+                'channel_id' => $channelId,
+                'runtime_session_id' => $sessionId,
+            ];
+        }
+
+        if (preg_match('/^\/voices(?:@\S+)?$/ui', $text) || preg_match('/^\/voice(?:@\S+)?(?:\s|$)/ui', $text)) {
+            $response = $this->voice_commands->handle($sessionId, $text);
+            $this->transport->sendSystem($sessionId, $response);
 
             return [
                 'ok' => true,

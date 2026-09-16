@@ -72,6 +72,10 @@ Source of truth для таких skills находится внутри дер�
 - `router.core_token`
 - `transcription.api_key`
 - `transcription.model`
+- `speech.api_key`
+- `speech.model`
+- `voice_response.default_voice`
+- `voice_response.allowed_voices`
 - `file_exchange.base_url`
 - `file_exchange.token`
 - `codex.cwd`, если `codex` должен запускаться из другого каталога

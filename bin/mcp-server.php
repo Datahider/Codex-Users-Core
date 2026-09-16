@@ -13,6 +13,9 @@ use CodexRuntime\Image\ImageSender;
 use CodexRuntime\Router\ApiClient;
 use CodexRuntime\Router\CurlHttpClient;
 use CodexRuntime\Router\RouterDeliveryClient;
+use CodexRuntime\RuntimePaths;
+use CodexRuntime\Voice\ResponseDeliveryTool;
+use CodexRuntime\Voice\VoiceResponseModeStore;
 
 $config_path = trim((string) getenv('CODEX_CORE_CONFIG'));
 $runtime_session_id = trim((string) getenv('RUNTIME_SID'));
@@ -32,5 +35,9 @@ $delivery = new RouterDeliveryClient(new ApiClient(
 ));
 $document_sender = new DocumentSender($file_exchange, $delivery, $runtime_session_id);
 $image_sender = new ImageSender($file_exchange, $delivery, $runtime_session_id);
+$response_delivery = new ResponseDeliveryTool(
+    new VoiceResponseModeStore((new RuntimePaths($config))->voiceResponseModesFile()),
+    $runtime_session_id
+);
 
-(new StdioServer($document_sender, $image_sender))->run(STDIN, STDOUT);
+(new StdioServer($document_sender, $image_sender, $response_delivery))->run(STDIN, STDOUT);

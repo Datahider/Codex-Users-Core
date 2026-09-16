@@ -63,6 +63,23 @@ final class RuntimeDoctor
             $issues[] = 'transcription.model is empty';
         }
 
+        if (trim((string) $config->get('speech', 'api_key', '')) === '') {
+            $issues[] = 'speech.api_key is empty';
+        }
+        if (trim((string) $config->get('speech', 'model', '')) === '') {
+            $issues[] = 'speech.model is empty';
+        }
+        $default_voice = strtolower(trim((string) $config->get('voice_response', 'default_voice', '')));
+        $allowed_voices = $config->get('voice_response', 'allowed_voices', []);
+        if (!is_array($allowed_voices) || $allowed_voices === []) {
+            $issues[] = 'voice_response.allowed_voices must be a non-empty array';
+        } else {
+            $normalized_voices = array_map(static fn (mixed $voice): string => strtolower(trim((string) $voice)), $allowed_voices);
+            if ($default_voice === '' || !in_array($default_voice, $normalized_voices, true)) {
+                $issues[] = 'voice_response.default_voice must occur in allowed_voices';
+            }
+        }
+
         $codexCwd = trim((string) $config->get('codex', 'cwd', ''));
         if ($codexCwd === '') {
             $issues[] = 'codex.cwd is empty';

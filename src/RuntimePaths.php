@@ -70,6 +70,16 @@ final class RuntimePaths
         return $this->stateDir() . '/active-turn.json';
     }
 
+    public function voiceResponseModesFile(): string
+    {
+        return $this->stateDir() . '/voice-response-modes.json';
+    }
+
+    public function voicePreferenceFile(): string
+    {
+        return $this->stateDir() . '/voice-preference.json';
+    }
+
     public function codexDebugDir(): string
     {
         return $this->root . '/codex-debug';

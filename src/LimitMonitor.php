@@ -54,6 +54,11 @@ final class LimitMonitor
         return $message;
     }
 
+    public function checkAfterFinal(int|string $session_id): void
+    {
+        $this->sendWarningIfNeeded($session_id, $this->provider->read());
+    }
+
     /**
      * @param array<string, mixed> $limits
      */

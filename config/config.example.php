@@ -29,6 +29,19 @@ return [
         'api_key' => '',
         'model' => 'gpt-transcribe',
     ],
+    'speech' => [
+        'api_key' => '',
+        'model' => 'gpt-4o-mini-tts',
+    ],
+    'voice_response' => [
+        'max_characters' => 700,
+        'classifier_model' => 'gpt-5.6-luna',
+        'default_voice' => 'cedar',
+        'allowed_voices' => [
+            'alloy', 'ash', 'ballad', 'coral', 'echo', 'fable', 'onyx',
+            'nova', 'sage', 'shimmer', 'verse', 'marin', 'cedar',
+        ],
+    ],
     'storage' => [
         // По умолчанию runtime-данные лежат вне каталога с точкой:
         // ~/var/codex-users-core

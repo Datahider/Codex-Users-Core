@@ -19,6 +19,7 @@ use CodexRuntime\ManagerQueue\EventRepository;
 use CodexRuntime\RuntimePaths;
 use CodexRuntime\TransportMessageIngress;
 use CodexRuntime\WorkerShutdownFlag;
+use CodexRuntime\Voice\VoiceCommandServiceInterface;
 
 require_once __DIR__ . '/../src/bootstrap.php';
 
@@ -149,6 +150,14 @@ PHP);
 
     $transport->messages = [];
     $paths = new RuntimePaths($config);
+    $voice_commands = new class implements VoiceCommandServiceInterface {
+        public array $calls = [];
+        public function handle(string $runtime_session_id, string $command): string
+        {
+            $this->calls[] = [$runtime_session_id, $command];
+            return 'Текущий голос: cedar.';
+        }
+    };
     $watcher = new ControlWatcher(
         $config,
         new Logger($paths->logFile()),
@@ -159,7 +168,8 @@ PHP);
         new TransportMessageIngress(new EventRepository($config)),
         new CodexSessionCatalog(),
         new WorkerShutdownFlag($config, 'control_queue', 'shutdown_flag', $paths->workerShutdownFlagFile('control_watcher')),
-        $monitor
+        $monitor,
+        $voice_commands
     );
     $process_command = new ReflectionMethod(ControlWatcher::class, 'processTransportCommand');
     $command_result = $process_command->invoke($watcher, [
@@ -171,6 +181,18 @@ PHP);
     assertSame(true, $command_result['ok'] ?? null, '/limits command result');
     assertSame(1, count($transport->messages), '/limits command outbound count');
     assertSame('system', $transport->messages[0]['kind'] ?? null, '/limits command system');
+
+    $transport->messages = [];
+    $voice_result = $process_command->invoke($watcher, [
+        'type' => 'transport_command',
+        'text' => '/voice',
+        'channel_id' => 'runtime-42',
+        'session_id' => 'runtime-42',
+    ]);
+    assertSame(true, $voice_result['ok'] ?? null, '/voice command result');
+    assertSame([['runtime-42', '/voice']], $voice_commands->calls, '/voice service call');
+    assertSame('system', $transport->messages[0]['kind'] ?? null, '/voice command system');
+    assertSame('Текущий голос: cedar.', $transport->messages[0]['text'] ?? null, '/voice response text');
 
     fwrite(STDOUT, "Limits monitoring smoke: OK\n");
     unlink($fake_codex);

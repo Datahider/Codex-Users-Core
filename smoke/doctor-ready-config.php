@@ -35,6 +35,14 @@ return [
         'api_key' => 'transcription-token',
         'model' => 'gpt-transcribe',
     ],
+    'speech' => [
+        'api_key' => 'speech-token',
+        'model' => 'gpt-4o-mini-tts',
+    ],
+    'voice_response' => [
+        'default_voice' => 'cedar',
+        'allowed_voices' => ['cedar', 'nova'],
+    ],
     'storage' => [
         'root' => '__ROOT__',
     ],

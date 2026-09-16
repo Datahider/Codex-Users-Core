@@ -6,6 +6,7 @@ declare(strict_types=1);
 use CodexRuntime\Mcp\DocumentToolInterface;
 use CodexRuntime\Mcp\ImageToolInterface;
 use CodexRuntime\Mcp\StdioServer;
+use CodexRuntime\Mcp\ResponseDeliveryToolInterface;
 
 require_once __DIR__ . '/../src/bootstrap.php';
 
@@ -24,6 +25,12 @@ $tool = new class implements DocumentToolInterface, ImageToolInterface {
         $this->calls[] = [$path, $caption];
 
         return ['delivered' => true, 'filename' => basename($path)];
+    }
+};
+$response_delivery = new class implements ResponseDeliveryToolInterface {
+    public function setResponseDelivery(string $mode, string $scope): array
+    {
+        throw new RuntimeException('Unexpected response delivery call');
     }
 };
 
@@ -45,7 +52,7 @@ fwrite($input, json_encode([
 ]) . "\n");
 rewind($input);
 
-(new StdioServer($tool, $tool))->run($input, $output);
+(new StdioServer($tool, $tool, $response_delivery))->run($input, $output);
 rewind($output);
 $responses = array_map(static fn (string $line): array => json_decode($line, true), array_values(array_filter(array_map('trim', explode("\n", stream_get_contents($output))))));
 

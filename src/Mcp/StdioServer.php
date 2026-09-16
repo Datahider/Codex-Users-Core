@@ -11,7 +11,8 @@ final class StdioServer
 {
     public function __construct(
         private DocumentToolInterface $document_tool,
-        private ImageToolInterface $image_tool
+        private ImageToolInterface $image_tool,
+        private ResponseDeliveryToolInterface $response_delivery_tool
     )
     {
     }
@@ -87,16 +88,40 @@ final class StdioServer
                     'required' => ['path'],
                     'additionalProperties' => false,
                 ],
+            ], [
+                'name' => 'set_response_delivery',
+                'description' => 'Call when the user asks for text or voice replies. Use scope=once for only the current final response and scope=persistent for this and following responses.',
+                'inputSchema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'mode' => ['type' => 'string', 'enum' => ['text', 'voice']],
+                        'scope' => ['type' => 'string', 'enum' => ['once', 'persistent']],
+                    ],
+                    'required' => ['mode', 'scope'],
+                    'additionalProperties' => false,
+                ],
             ]]];
         }
 
         if ($method === 'tools/call') {
             $params = is_array($request['params'] ?? null) ? $request['params'] : [];
             $name = (string) ($params['name'] ?? '');
-            if (!in_array($name, ['send_document', 'send_image'], true)) {
+            if (!in_array($name, ['send_document', 'send_image', 'set_response_delivery'], true)) {
                 throw new RuntimeException('Unknown MCP tool');
             }
             $arguments = is_array($params['arguments'] ?? null) ? $params['arguments'] : [];
+            if ($name === 'set_response_delivery') {
+                $result = $this->response_delivery_tool->setResponseDelivery(
+                    (string) ($arguments['mode'] ?? ''),
+                    (string) ($arguments['scope'] ?? '')
+                );
+
+                return [
+                    'content' => [['type' => 'text', 'text' => (string) json_encode($result, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)]],
+                    'structuredContent' => $result,
+                    'isError' => false,
+                ];
+            }
             $path = trim((string) ($arguments['path'] ?? ''));
             if ($path === '') {
                 throw new RuntimeException('send_document path is required');

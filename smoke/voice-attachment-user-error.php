@@ -14,6 +14,7 @@ use CodexRuntime\CodexProcess;
 use CodexRuntime\Config;
 use CodexRuntime\Contracts\RateLimitsProviderInterface;
 use CodexRuntime\Contracts\TransportClientInterface;
+use CodexRuntime\Contracts\FinalResponseDeliveryInterface;
 use CodexRuntime\JsonFileStore;
 use CodexRuntime\Logger;
 use CodexRuntime\LimitMonitor;
@@ -110,7 +111,13 @@ try {
             },
             $transport,
             new SystemClock()
-        )
+        ),
+        new class implements FinalResponseDeliveryInterface {
+            public function send(string $runtime_session_id, string $text): array
+            {
+                throw new RuntimeException('Unexpected final delivery');
+            }
+        }
     );
 
     $method = new ReflectionMethod(ManagerWorker::class, 'processUserMessage');

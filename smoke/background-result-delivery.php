@@ -12,6 +12,7 @@ use CodexRuntime\CodexProcess;
 use CodexRuntime\Config;
 use CodexRuntime\Contracts\RateLimitsProviderInterface;
 use CodexRuntime\Contracts\TransportClientInterface;
+use CodexRuntime\Contracts\FinalResponseDeliveryInterface;
 use CodexRuntime\JsonFileStore;
 use CodexRuntime\Logger;
 use CodexRuntime\LimitMonitor;
@@ -156,7 +157,17 @@ SH);
             },
             $transport,
             new SystemClock()
-        )
+        ),
+        new class($transport) implements FinalResponseDeliveryInterface {
+            public function __construct(private TransportClientInterface $transport)
+            {
+            }
+
+            public function send(string $runtime_session_id, string $text): array
+            {
+                return $this->transport->sendMessage($runtime_session_id, $text);
+            }
+        }
     );
 
     $method = new ReflectionMethod(ManagerWorker::class, 'processBackgroundResult');
