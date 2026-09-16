@@ -33,7 +33,7 @@ final class VoiceCommandService implements VoiceCommandServiceInterface
                 $this->sender->send(
                     $runtime_session_id,
                     $this->sample($voice, $index),
-                    "<code>/voice {$voice}</code>"
+                    "`/voice {$voice}`"
                 );
             }
 
