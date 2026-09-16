@@ -158,7 +158,7 @@ $voiceAttachments = new VoiceAttachmentProcessor(
         new CurlTranscriptionHttpClient()
     )
 );
-$attachmentLocalizer = new InboundAttachmentLocalizer($attachmentDownloader);
+$attachmentLocalizer = new InboundAttachmentLocalizer($attachmentDownloader, $paths->attachmentsDir());
 $limitMonitor = new LimitMonitor($config, new CodexAppServerRateLimitsProvider($config), $transport, new SystemClock());
 $worker = new ManagerWorker($config, $logger, $events, $stateStore, $statusMessages, $shutdown, $transport, $codex, $voiceAttachments, $attachmentLocalizer, $limitMonitor);
 $worker->run();

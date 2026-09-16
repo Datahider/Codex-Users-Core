@@ -43,6 +43,7 @@ final class RuntimeInstaller
             $paths->logDir(),
             $paths->tmpDir(),
             $paths->codexDebugDir(),
+            $paths->attachmentsDir(),
         ] as $dir) {
             $this->ensureDirectory($dir);
         }

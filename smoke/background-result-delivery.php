@@ -142,7 +142,7 @@ SH);
             {
                 throw new RuntimeException('Unexpected attachment download');
             }
-        }),
+        }, $tmpRoot . '/attachments'),
         new LimitMonitor(
             $config,
             new class implements RateLimitsProviderInterface {

@@ -223,9 +223,11 @@ send_image(path: string, caption?: string)
 ```
 
 Каждое не-voice вложение обязано содержать канонический URL `https://files.ioannidis.ru/<file_id>`.
-Core скачивает его до запуска `codex` через `https://files.ioannidis.ru/<file_id>?download=1` с HTTP-заголовком `Referer: https://files.ioannidis.ru/` и сохраняет во временный файл с расширением из `attachment.name`.
+Core скачивает его до запуска `codex` через `https://files.ioannidis.ru/<file_id>?download=1` с HTTP-заголовком `Referer: https://files.ioannidis.ru/` и сохраняет в `<storage.root>/attachments/<runtime_session_id>/`.
+Имя каталога обязано точно совпадать с `runtime_session_id`, полученным от Router. Идентификаторы с символами вне `[A-Za-z0-9._-]` отклоняются.
+Имя файла строится из `file_id` и безопасного варианта `attachment.name`, чтобы одноимённые файлы разных вложений не перезаписывали друг друга.
 В prompt первым полем вложения передаётся `local_path` к читаемой локальной копии. Поля `url`, `type`, `name`, `mime`, `size_bytes`, `source`, `expires_at` сохраняются как дополнительная информация.
-Локальная копия существует до завершения `codex->run(...)` и удаляется после успешного завершения или ошибки.
+Локальная копия не удаляется после turn и остаётся доступной последующим сообщениям того же диалога.
 Невалидный URL или ошибка скачивания явно завершают обработку события ошибкой; fallback на исходный URL запрещён.
 
 Если `meta.attachments` пустой, prompt должен остаться обычным пользовательским текстом без служебного блока.

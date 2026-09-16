@@ -137,9 +137,8 @@ final class ManagerWorker
         if ($processed['transcript'] !== '') {
             $this->transport->sendTranscript($runtimeSessionId, $processed['transcript']);
         }
-        $localized = $this->attachment_localizer->localize($processed['attachments']);
-        try {
-            $text = AttachmentPromptFormatter::prependAttachments($processed['text'], $localized['attachments']);
+        $localized = $this->attachment_localizer->localize($runtimeSessionId, $processed['attachments']);
+        $text = AttachmentPromptFormatter::prependAttachments($processed['text'], $localized);
             if ($text === '') {
                 throw new RuntimeException('Empty text for user_message');
             }
@@ -193,17 +192,14 @@ final class ManagerWorker
 
         $this->sendMessage($runtimeSessionId, $finalText, null, null);
 
-            return [
+        return [
                 'ok' => (($result['exit_code'] ?? 1) === 0),
                 'stdout' => $finalText,
                 'stderr' => (string) ($result['stderr'] ?? ''),
                 'session_id' => $runtimeSessionId,
                 'codex_session_id' => $finalCodexSessionId,
                 'event_type' => 'user_message',
-            ];
-        } finally {
-            $this->attachment_localizer->cleanup($localized['file_paths']);
-        }
+        ];
     }
 
     private function processScheduledPrompt(array $event): array

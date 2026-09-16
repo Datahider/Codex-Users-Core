@@ -96,7 +96,7 @@ try {
             {
                 throw new RuntimeException('Unexpected non-voice attachment download');
             }
-        }),
+        }, $tmp_root . '/attachments'),
         new LimitMonitor(
             $config,
             new class implements RateLimitsProviderInterface {

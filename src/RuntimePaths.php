@@ -75,6 +75,11 @@ final class RuntimePaths
         return $this->root . '/codex-debug';
     }
 
+    public function attachmentsDir(): string
+    {
+        return $this->root . '/attachments';
+    }
+
     public function mainLockFile(): string
     {
         return $this->runDir() . '/core-main.lock';

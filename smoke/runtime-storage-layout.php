@@ -47,6 +47,7 @@ PHP);
         $tmpRoot . '/runtime/log',
         $tmpRoot . '/runtime/tmp',
         $tmpRoot . '/runtime/codex-debug',
+        $tmpRoot . '/runtime/attachments',
         $tmpRoot . '/runtime/manager-queue/new',
         $tmpRoot . '/runtime/manager-queue/running',
         $tmpRoot . '/runtime/manager-queue/done',
