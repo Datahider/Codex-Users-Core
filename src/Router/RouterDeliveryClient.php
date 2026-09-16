@@ -133,7 +133,7 @@ final class RouterDeliveryClient implements DeliveryClientInterface, TransportCl
     }
 
     /** @param list<array<string, mixed>> $attachments @return array<string, mixed> */
-    public function sendVoice(int|string $chatId, array $attachments): array
+    public function sendVoice(int|string $chatId, array $attachments, string $caption = ''): array
     {
         if (count($attachments) !== 1) {
             throw new RuntimeException('Voice outbound requires exactly one attachment');
@@ -142,7 +142,7 @@ final class RouterDeliveryClient implements DeliveryClientInterface, TransportCl
         return $this->retryUntilDelivered(
             (string) $chatId,
             'voice',
-            fn (): array => $this->sendOutbound((string) $chatId, 'voice', '', [], $attachments)
+            fn (): array => $this->sendOutbound((string) $chatId, 'voice', $caption, [], $attachments)
         );
     }
 

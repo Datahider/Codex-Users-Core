@@ -181,7 +181,9 @@ final class ControlWatcher
 
         if (preg_match('/^\/voices(?:@\S+)?$/ui', $text) || preg_match('/^\/voice(?:@\S+)?(?:\s|$)/ui', $text)) {
             $response = $this->voice_commands->handle($sessionId, $text);
-            $this->transport->sendSystem($sessionId, $response);
+            if ($response !== '') {
+                $this->transport->sendSystem($sessionId, $response);
+            }
 
             return [
                 'ok' => true,

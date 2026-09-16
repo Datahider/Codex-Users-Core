@@ -310,7 +310,7 @@ $voiceSender = new VoiceSender(
     new FileExchangeApiClient((string) $config->require('file_exchange', 'base_url'), (string) $config->require('file_exchange', 'token')),
     new RouterDeliveryClient($api, $logger, $retrySeconds)
 );
-$voiceCommands = new VoiceCommandService($preference, $synthesizer, $voiceSender);
+$voiceCommands = new VoiceCommandService($preference, $synthesizer, $voiceSender, $paths->voiceSamplesDir());
 $watcher = new ControlWatcher($config, $logger, $commands, $activeTurn, $stateStore, $transport, $ingress, $sessions, $shutdown, $limitMonitor, $voiceCommands);
 $watcher->run();
 PHP,

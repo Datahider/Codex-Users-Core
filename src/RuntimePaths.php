@@ -80,6 +80,11 @@ final class RuntimePaths
         return $this->stateDir() . '/voice-preference.json';
     }
 
+    public function voiceSamplesDir(): string
+    {
+        return $this->root . '/voice-samples';
+    }
+
     public function codexDebugDir(): string
     {
         return $this->root . '/codex-debug';

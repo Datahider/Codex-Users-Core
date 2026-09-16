@@ -16,7 +16,7 @@ final class VoiceSender implements VoiceOutboundSenderInterface
     ) {
     }
 
-    public function send(string $runtime_session_id, string $file_path): array
+    public function send(string $runtime_session_id, string $file_path, string $caption = ''): array
     {
         $real_path = realpath($file_path);
         if ($real_path === false || !is_file($real_path) || !is_readable($real_path)) {
@@ -39,7 +39,7 @@ final class VoiceSender implements VoiceOutboundSenderInterface
             'name' => $filename,
             'mime' => 'audio/ogg',
             'size_bytes' => $size,
-        ]]);
+        ]], $caption);
 
         return [
             'delivered' => !empty($result['accepted']),
