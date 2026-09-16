@@ -105,8 +105,42 @@ or failure.
 'voice_response' => [
     'max_characters' => 700,
     'classifier_model' => 'gpt-5.6-luna',
+    'default_voice' => 'cedar',
+    'allowed_voices' => [
+        'alloy', 'ash', 'ballad', 'coral', 'echo', 'fable', 'onyx',
+        'nova', 'sage', 'shimmer', 'verse', 'marin', 'cedar',
+    ],
+],
+'speech' => [
+    'api_key' => '',
+    'model' => 'gpt-4o-mini-tts',
 ],
 ```
+
+`default_voice` must occur in the non-empty `allowed_voices` list. Unknown and
+disallowed voice names fail explicitly. Voice names are compared exactly after
+lowercasing and trimming.
+
+## User voice selection and preview
+
+The selected voice is a Core-wide user preference because one Core instance has
+one owner. It applies across runtime sessions and survives process restarts. The
+default comes from `voice_response.default_voice` until the user selects another
+voice.
+
+Core handles these transport commands without forwarding them to Codex:
+
+- `/voices` — returns the allowed names and the usage hint `/voice <name>`;
+- `/voice` — returns the currently selected voice;
+- `/voice <name>` — validates and persists the voice, synthesizes the fixed sample
+  `Это пример выбранного голоса.` with that voice, emits it as `kind=voice`, then
+  returns `Выбран голос: <name>.` as `kind=system`.
+
+Selecting the already active voice still sends its sample. A missing, unknown or
+disallowed voice never changes the stored preference and never invokes TTS.
+
+Regular accepted voice finals and voice samples use the selected voice. The
+catalog is not divided into gender or other subjective categories.
 
 Changing the response mode is independent of transcript visibility for incoming
 voice messages.
