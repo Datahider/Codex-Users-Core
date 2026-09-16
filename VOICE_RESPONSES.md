@@ -131,14 +131,17 @@ voice.
 
 Core handles these transport commands without forwarding them to Codex:
 
-- `/voices` — returns the allowed names and the usage hint `/voice <name>`;
+- `/voices` — emits one `kind=voice` sample for every allowed voice. Each sample
+  has the plain-text caption `/voice <name>` so it can be copied into the input;
 - `/voice` — returns the currently selected voice;
-- `/voice <name>` — validates and persists the voice, synthesizes the fixed sample
-  `Это пример выбранного голоса.` with that voice, emits it as `kind=voice`, then
-  returns `Выбран голос: <name>.` as `kind=system`.
+- `/voice <name>` — validates and persists the voice, then returns
+  `Выбран голос: <name>.` as `kind=system` without emitting another sample.
 
-Selecting the already active voice still sends its sample. A missing, unknown or
-disallowed voice never changes the stored preference and never invokes TTS.
+Every catalog voice has a short lively greeting which includes its voice name.
+Samples are synthesized lazily and stored in a persistent cache by voice name.
+Later `/voices` calls reuse the cached OGG file and do not invoke TTS again. A
+missing, unknown or disallowed voice never changes the stored preference and
+never invokes TTS.
 
 Regular accepted voice finals and voice samples use the selected voice. The
 catalog is not divided into gender or other subjective categories.
