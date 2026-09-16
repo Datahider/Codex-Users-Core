@@ -89,7 +89,7 @@ try {
     };
     $final_sender = new class implements VoiceOutboundSenderInterface {
         public array $calls = [];
-        public function send(string $runtime_session_id, string $file_path): array
+        public function send(string $runtime_session_id, string $file_path, string $caption = ''): array
         {
             $this->calls[] = ['runtime_session_id' => $runtime_session_id, 'body' => file_get_contents($file_path)];
             return ['delivered' => true];
