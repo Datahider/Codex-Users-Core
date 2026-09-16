@@ -70,7 +70,11 @@ try {
         'voices catalog response'
     );
     assertSame(3, count($synthesizer->calls), 'catalog samples synthesized');
-    assertSame(['/voice cedar', '/voice marin', '/voice nova'], array_column($sender->calls, 'caption'), 'copyable captions');
+    assertSame(
+        ['<code>/voice cedar</code>', '<code>/voice marin</code>', '<code>/voice nova</code>'],
+        array_column($sender->calls, 'caption'),
+        'copyable captions'
+    );
     assertSame(3, count(array_unique(array_column($synthesizer->calls, 'text'))), 'catalog greetings differ');
     foreach ($synthesizer->calls as $call) {
         assertSame(true, str_contains($call['text'], $call['voice']), 'greeting names its voice');
