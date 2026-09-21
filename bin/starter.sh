@@ -429,9 +429,12 @@ if [[ "$INVOKED_NAME" == "start" ]]; then
   PROCESS_DIR="$MANAGED_PROCESSES_DIR/$PROCESS_NAME"
   PID_FILE="$PROCESS_DIR/pid"
   PGID_FILE="$PROCESS_DIR/pgid"
+  MARKER_FILE="$PROCESS_DIR/marker"
   PROCESS_LOG="$PROCESS_DIR/stdout.log"
   PROCESS_META="$PROCESS_DIR/meta.json"
+  PGID_CHECKER="$RUNTIME_ROOT/bin/managed-process-pgid.sh"
   START_COMMAND="$(build_command "$1" "${@:2}")"
+  PROCESS_MARKER="$JOB_ID"
   JOB_FILE="$QUEUE_DIR/$JOB_ID.json"
   DETACHED_COMMAND="$(cat <<BASH
 mkdir -p $(printf '%q' "$PROCESS_DIR")
@@ -444,12 +447,14 @@ if [[ -f $(printf '%q' "$PID_FILE") ]]; then
   rm -f $(printf '%q' "$PID_FILE")
 fi
 rm -f $(printf '%q' "$PGID_FILE")
+printf '%s\n' $(printf '%q' "$PROCESS_MARKER") >$(printf '%q' "$MARKER_FILE")
 if ! command -v setsid >/dev/null 2>&1; then
   echo "start failed: setsid is required for managed processes" >&2
   exit 1
 fi
-nohup setsid bash -lc $(printf '%q' "cd $(printf '%q' "$TARGET_CWD") && exec $START_COMMAND") >>$(printf '%q' "$PROCESS_LOG") 2>&1 < /dev/null &
-process_pid=\$!
+CODEX_MANAGED_PROCESS_MARKER=$(printf '%q' "$PROCESS_MARKER") nohup setsid bash -lc $(printf '%q' "cd $(printf '%q' "$TARGET_CWD") && exec $START_COMMAND") >>$(printf '%q' "$PROCESS_LOG") 2>&1 < /dev/null &
+launcher_pid=\$!
+process_pid=\$launcher_pid
 if [[ -n $(printf '%q' "$TARGET_PID_FILE") ]]; then
   for _ in 1 2 3 4 5; do
     if [[ -f $(printf '%q' "$TARGET_PID_FILE") ]]; then
@@ -462,18 +467,15 @@ if [[ -n $(printf '%q' "$TARGET_PID_FILE") ]]; then
     read -r -t 1 _ </dev/null || true
   done
 fi
-process_pgid=""
-for _ in 1 2 3 4 5; do
-  process_pgid="\$(ps -o pgid= -p "\$process_pid" 2>/dev/null | tr -d '[:space:]')"
-  if [[ -n "\${process_pgid:-}" ]]; then
-    break
-  fi
-  read -r -t 1 _ </dev/null || true
-done
-printf '%s\n' "\$process_pid" >$(printf '%q' "$PID_FILE")
-if [[ -n "\${process_pgid:-}" ]]; then
-  printf '%s\n' "\$process_pgid" >$(printf '%q' "$PGID_FILE")
+process_pgid="\$($(printf '%q' "$PGID_CHECKER") "\$launcher_pid" 5 1 || true)"
+if [[ -z "\${process_pgid:-}" ]]; then
+  kill "\$launcher_pid" 2>/dev/null || true
+  rm -f $(printf '%q' "$MARKER_FILE")
+  echo "start failed: managed process did not enter its own process group: $PROCESS_NAME pid=\$launcher_pid" >&2
+  exit 1
 fi
+printf '%s\n' "\$process_pid" >$(printf '%q' "$PID_FILE")
+printf '%s\n' "\$process_pgid" >$(printf '%q' "$PGID_FILE")
 cat >$(printf '%q' "$PROCESS_META") <<'JSON'
 {
   "name": "$(json_escape "$PROCESS_NAME")",
@@ -481,6 +483,7 @@ cat >$(printf '%q' "$PROCESS_META") <<'JSON'
   "command": "$(json_escape "$START_COMMAND")",
   "pid_file": "$(json_escape "$PID_FILE")",
   "pgid_file": "$(json_escape "$PGID_FILE")",
+  "marker_file": "$(json_escape "$MARKER_FILE")",
   "delegated_pid_file": "$(json_escape "$TARGET_PID_FILE")",
   "log_file": "$(json_escape "$PROCESS_LOG")",
   "started_by_runtime_sid": "$(json_escape "${RUNTIME_SID-}")",
@@ -539,7 +542,9 @@ if [[ "$INVOKED_NAME" == "stop" ]]; then
   PROCESS_DIR="$MANAGED_PROCESSES_DIR/$PROCESS_NAME"
   PID_FILE="$PROCESS_DIR/pid"
   PGID_FILE="$PROCESS_DIR/pgid"
+  MARKER_FILE="$PROCESS_DIR/marker"
   PROCESS_META="$PROCESS_DIR/meta.json"
+  OWNERSHIP_CHECKER="$RUNTIME_ROOT/bin/managed-process-owned.sh"
   JOB_FILE="$QUEUE_DIR/$JOB_ID.json"
   STOP_COMMAND="$(cat <<BASH
 if [[ ! -f $(printf '%q' "$PID_FILE") && ! -f $(printf '%q' "$PGID_FILE") ]]; then
@@ -548,8 +553,22 @@ if [[ ! -f $(printf '%q' "$PID_FILE") && ! -f $(printf '%q' "$PGID_FILE") ]]; th
 fi
 process_pid="\$(cat $(printf '%q' "$PID_FILE") 2>/dev/null || true)"
 process_pgid="\$(cat $(printf '%q' "$PGID_FILE") 2>/dev/null || true)"
-if [[ -z "\${process_pgid:-}" && -n "\${process_pid:-}" ]]; then
-  process_pgid="\$(ps -o pgid= -p "\$process_pid" 2>/dev/null | tr -d '[:space:]')"
+process_marker="\$(cat $(printf '%q' "$MARKER_FILE") 2>/dev/null || true)"
+if [[ ! "\${process_pid:-}" =~ ^[0-9]+$ || -z "\${process_marker:-}" ]]; then
+  echo "stop refused unmanaged process: $PROCESS_NAME missing ownership data" >&2
+  exit 1
+fi
+if kill -0 "\$process_pid" 2>/dev/null; then
+  if ! $(printf '%q' "$OWNERSHIP_CHECKER") "\$process_pid" "\$process_marker"; then
+    echo "stop refused unmanaged process: $PROCESS_NAME pid=\$process_pid ownership mismatch" >&2
+    exit 1
+  fi
+  current_pgid="\$(ps -o pgid= -p "\$process_pid" 2>/dev/null | tr -d '[:space:]')"
+  if [[ "\${process_pgid:-}" != "\${current_pgid:-}" ]]; then
+    process_pgid=""
+  fi
+else
+  process_pgid=""
 fi
 if [[ "\${process_pgid:-}" =~ ^[0-9]+$ ]] && kill -0 -- "-\$process_pgid" 2>/dev/null; then
   kill -- "-\$process_pgid"
@@ -562,6 +581,7 @@ else
 fi
 rm -f $(printf '%q' "$PID_FILE")
 rm -f $(printf '%q' "$PGID_FILE")
+rm -f $(printf '%q' "$MARKER_FILE")
 BASH
 )"
 
