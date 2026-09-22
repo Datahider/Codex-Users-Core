@@ -7,6 +7,25 @@ use CodexRuntime\ManagerWorkerSlot;
 
 require dirname(__DIR__) . '/src/bootstrap.php';
 
+$probe_root = $argv[1] ?? null;
+if (($argv[0] ?? '') !== '' && ($argv[2] ?? '') === 'probe') {
+    $probe_config = new Config([
+        'storage' => ['root' => $probe_root],
+        'manager_queue' => ['max_workers' => 1],
+    ]);
+    $probe_slot = new ManagerWorkerSlot($probe_config);
+    $slot_path = (new CodexRuntime\RuntimePaths($probe_config))->managerWorkerSlotFile(1);
+    $inherited = false;
+    foreach (glob('/proc/self/fd/*') ?: [] as $fd_path) {
+        if (readlink($fd_path) === $slot_path) {
+            $inherited = true;
+            break;
+        }
+    }
+    fwrite(STDOUT, json_encode(['inherited' => $inherited]) . PHP_EOL);
+    exit(0);
+}
+
 $tmp_root = sys_get_temp_dir() . '/codex-manager-slots-' . bin2hex(random_bytes(4));
 
 try {
@@ -22,6 +41,21 @@ try {
     assertSame(1, $first->number(), 'first worker slot number');
     assertSame(false, $second->acquire(), 'second worker is rejected by capacity');
     assertSame(null, $second->number(), 'rejected worker has no slot');
+
+    $command = [PHP_BINARY, __FILE__, $tmp_root, 'probe'];
+    $pipes = [];
+    $process = proc_open($command, [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
+    if (!is_resource($process)) {
+        throw new RuntimeException('Cannot start child slot probe');
+    }
+    $child_stdout = stream_get_contents($pipes[1]);
+    $child_stderr = stream_get_contents($pipes[2]);
+    fclose($pipes[1]);
+    fclose($pipes[2]);
+    $child_exit_code = proc_close($process);
+    assertSame(0, $child_exit_code, 'child slot probe exit code: ' . trim((string) $child_stderr));
+    $child_result = json_decode((string) $child_stdout, true, 512, JSON_THROW_ON_ERROR);
+    assertSame(false, $child_result['inherited'] ?? null, 'exec child does not inherit slot descriptor');
 
     $first->release();
     assertSame(true, $second->acquire(), 'slot is reusable after release');

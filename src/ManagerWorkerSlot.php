@@ -34,7 +34,7 @@ final class ManagerWorkerSlot
 
         for ($number = 1; $number <= $this->max_workers; $number++) {
             $path = $paths->managerWorkerSlotFile($number);
-            $handle = fopen($path, 'c+');
+            $handle = fopen($path, 'c+e');
             if ($handle === false) {
                 throw new RuntimeException("Cannot open {$path}");
             }
