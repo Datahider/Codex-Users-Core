@@ -11,7 +11,6 @@ final class ManagerWorkerSlot
     /** @var resource|null */
     private $handle = null;
     private ?int $slot_number = null;
-    private ?string $path = null;
     private int $max_workers;
 
     public function __construct(private Config $config)
@@ -50,7 +49,6 @@ final class ManagerWorkerSlot
             fflush($handle);
             $this->handle = $handle;
             $this->slot_number = $number;
-            $this->path = $path;
             return true;
         }
 
@@ -77,38 +75,6 @@ final class ManagerWorkerSlot
     public function capacity(): int
     {
         return $this->max_workers;
-    }
-
-    /**
-     * @return array{acquired:bool,slot:?int,path:?string,inode:?int,device:?int,exclusive_lock_observed:bool}
-     */
-    public function diagnostics(): array
-    {
-        $stat = $this->path !== null ? stat($this->path) : false;
-        $exclusive_lock_observed = false;
-
-        if ($this->path !== null) {
-            $probe = fopen($this->path, 'c+e');
-            if ($probe === false) {
-                throw new RuntimeException("Cannot open {$this->path} for slot diagnostics");
-            }
-
-            if (flock($probe, LOCK_EX | LOCK_NB)) {
-                flock($probe, LOCK_UN);
-            } else {
-                $exclusive_lock_observed = true;
-            }
-            fclose($probe);
-        }
-
-        return [
-            'acquired' => is_resource($this->handle),
-            'slot' => $this->slot_number,
-            'path' => $this->path,
-            'inode' => is_array($stat) ? (int) $stat['ino'] : null,
-            'device' => is_array($stat) ? (int) $stat['dev'] : null,
-            'exclusive_lock_observed' => $exclusive_lock_observed,
-        ];
     }
 
     public function __destruct()

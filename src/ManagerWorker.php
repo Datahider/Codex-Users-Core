@@ -44,12 +44,13 @@ final class ManagerWorker
 
         $this->logger->info('Manager worker slot acquired', [
             'pid' => getmypid(),
+            'slot' => $slot->number(),
             'max_workers' => $slot->capacity(),
-        ] + $slot->diagnostics());
+        ]);
         $this->writePidFile();
 
         try {
-            $this->runWithSlot($slot);
+            $this->runWithSlot();
         } finally {
             $this->removeOwnPidFile();
             $this->logger->info('Manager worker slot released', [
@@ -61,7 +62,7 @@ final class ManagerWorker
         }
     }
 
-    private function runWithSlot(ManagerWorkerSlot $slot): void
+    private function runWithSlot(): void
     {
         $requeued = $this->events->requeueAllRunning();
         $this->logger->info('Manager worker started');
@@ -89,7 +90,6 @@ final class ManagerWorker
                 $event = $this->events->loadEvent($runningPath);
                 $eventId = (string) ($event['id'] ?? basename($runningPath, '.json'));
                 $this->markActive($event);
-                $this->logSlotState($slot, 'before_event', $eventId);
                 $this->logger->info('Manager worker handling event', [
                     'event_id' => $eventId,
                     'type' => $event['type'] ?? 'unknown',
@@ -99,7 +99,6 @@ final class ManagerWorker
                 $result = $this->processEvent($event);
                 $this->events->finish($runningPath, !empty($result['ok']) ? 'done' : 'failed', $result);
                 $this->clearActive(!empty($result['ok']));
-                $this->logSlotState($slot, 'after_event', $eventId);
             } catch (Throwable $e) {
                 $this->logger->error('Manager worker error', ['error' => $e->getMessage()]);
                 if ($runningPath !== null && is_file($runningPath)) {
@@ -120,28 +119,9 @@ final class ManagerWorker
                     }
                 }
                 $this->clearActive(false);
-                $this->logSlotState($slot, 'after_error', is_array($event) ? (string) ($event['id'] ?? '') : '');
                 usleep($pollIntervalMs * 1000);
             }
         }
-    }
-
-    private function logSlotState(ManagerWorkerSlot $slot, string $checkpoint, string $event_id): void
-    {
-        $diagnostics = $slot->diagnostics();
-        $context = [
-            'pid' => getmypid(),
-            'checkpoint' => $checkpoint,
-            'event_id' => $event_id,
-            'max_workers' => $slot->capacity(),
-        ] + $diagnostics;
-
-        if (!$diagnostics['acquired'] || !$diagnostics['exclusive_lock_observed']) {
-            $this->logger->warning('Manager worker slot state', $context);
-            return;
-        }
-
-        $this->logger->info('Manager worker slot state', $context);
     }
 
     private function processEvent(array $event): array

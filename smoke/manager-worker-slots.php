@@ -39,13 +39,6 @@ try {
 
     assertSame(true, $first->acquire(), 'first worker acquires slot');
     assertSame(1, $first->number(), 'first worker slot number');
-    $held_diagnostics = $first->diagnostics();
-    assertSame(true, $held_diagnostics['acquired'] ?? null, 'diagnostics acquired state');
-    assertSame(true, $held_diagnostics['exclusive_lock_observed'] ?? null, 'diagnostics observes held lock');
-    assertSame(1, $held_diagnostics['slot'] ?? null, 'diagnostics slot number');
-    assertSame(true, is_string($held_diagnostics['path'] ?? null), 'diagnostics path');
-    assertSame(true, is_int($held_diagnostics['inode'] ?? null), 'diagnostics inode');
-    assertSame(true, is_int($held_diagnostics['device'] ?? null), 'diagnostics device');
     assertSame(false, $second->acquire(), 'second worker is rejected by capacity');
     assertSame(null, $second->number(), 'rejected worker has no slot');
 
@@ -65,9 +58,6 @@ try {
     assertSame(false, $child_result['inherited'] ?? null, 'exec child does not inherit slot descriptor');
 
     $first->release();
-    $released_diagnostics = $first->diagnostics();
-    assertSame(false, $released_diagnostics['acquired'] ?? null, 'diagnostics released state');
-    assertSame(false, $released_diagnostics['exclusive_lock_observed'] ?? null, 'diagnostics observes released lock');
     assertSame(true, $second->acquire(), 'slot is reusable after release');
     assertSame(1, $second->number(), 'reused slot number');
     $second->release();
