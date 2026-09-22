@@ -15,8 +15,6 @@ use Throwable;
 
 final class ManagerWorker
 {
-    private $lockHandle = null;
-
     public function __construct(
         private Config $config,
         private Logger $logger,
@@ -35,7 +33,37 @@ final class ManagerWorker
 
     public function run(): void
     {
-        $this->acquireLock();
+        $slot = new ManagerWorkerSlot($this->config);
+        if (!$slot->acquire()) {
+            $this->logger->info('Manager worker capacity reached', [
+                'pid' => getmypid(),
+                'max_workers' => $slot->capacity(),
+            ]);
+            return;
+        }
+
+        $this->logger->info('Manager worker slot acquired', [
+            'pid' => getmypid(),
+            'slot' => $slot->number(),
+            'max_workers' => $slot->capacity(),
+        ]);
+        $this->writePidFile();
+
+        try {
+            $this->runWithSlot();
+        } finally {
+            $this->removeOwnPidFile();
+            $this->logger->info('Manager worker slot released', [
+                'pid' => getmypid(),
+                'slot' => $slot->number(),
+                'max_workers' => $slot->capacity(),
+            ]);
+            $slot->release();
+        }
+    }
+
+    private function runWithSlot(): void
+    {
         $requeued = $this->events->requeueAllRunning();
         $this->logger->info('Manager worker started');
         if ($requeued !== []) {
@@ -537,30 +565,28 @@ TEXT;
         return $current !== $next;
     }
 
-    private function acquireLock(): void
+    private function writePidFile(): void
     {
         $paths = new RuntimePaths($this->config);
-        $lockFile = (string) $this->config->get('manager_queue', 'lock_file', $paths->workerLockFile('manager_worker'));
-        $dir = dirname($lockFile);
+        $pidFile = (string) $this->config->get('background', 'manager_worker_pid_file', $paths->workerPidFile('manager_worker'));
+        $dir = dirname($pidFile);
         if (!is_dir($dir)) {
             mkdir($dir, 0775, true);
         }
-
-        $handle = fopen($lockFile, 'c+');
-        if ($handle === false) {
-            throw new RuntimeException("Cannot open {$lockFile}");
-        }
-
-        if (!flock($handle, LOCK_EX | LOCK_NB)) {
-            throw new RuntimeException('Manager worker is already running');
-        }
-
-        ftruncate($handle, 0);
-        fwrite($handle, (string) getmypid());
-        fflush($handle);
-        $this->lockHandle = $handle;
-
-        $pidFile = (string) $this->config->get('background', 'manager_worker_pid_file', $paths->workerPidFile('manager_worker'));
         file_put_contents($pidFile, (string) getmypid());
+    }
+
+    private function removeOwnPidFile(): void
+    {
+        $paths = new RuntimePaths($this->config);
+        $pidFile = (string) $this->config->get('background', 'manager_worker_pid_file', $paths->workerPidFile('manager_worker'));
+        if (!is_file($pidFile)) {
+            return;
+        }
+
+        $storedPid = trim((string) file_get_contents($pidFile));
+        if ($storedPid === (string) getmypid()) {
+            unlink($pidFile);
+        }
     }
 }

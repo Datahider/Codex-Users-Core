@@ -17,6 +17,9 @@ return [
         // 'primary_remaining_warning_percent' => 5,
         // 'secondary_remaining_warning_percent' => 1,
     ],
+    'manager_queue' => [
+        'max_workers' => 1,
+    ],
     'router' => [
         'base_url' => 'https://cdx-router.botmeister.ru',
         'core_token' => '',

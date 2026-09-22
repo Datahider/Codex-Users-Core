@@ -120,6 +120,15 @@ final class RuntimePaths
         return $this->runDir() . '/' . $this->normalizeWorkerName($worker) . '.shutdown.flag';
     }
 
+    public function managerWorkerSlotFile(int $slot_number): string
+    {
+        if ($slot_number < 1) {
+            throw new RuntimeException('Manager worker slot number must be greater than zero');
+        }
+
+        return $this->runDir() . '/manager-worker-slot-' . $slot_number . '.lock';
+    }
+
     private function normalizeWorkerName(string $worker): string
     {
         $normalized = trim($worker);
