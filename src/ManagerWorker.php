@@ -170,7 +170,9 @@ final class ManagerWorker
         } catch (Throwable $error) {
             $this->sendMessage(
                 $runtimeSessionId,
-                'Не удалось расшифровать голосовое сообщение. Проверьте transcription.api_key и повторите отправку.',
+                $error instanceof OptionalFeatureUnavailableException
+                    ? $error->getMessage()
+                    : 'Не удалось расшифровать голосовое сообщение. Проверьте transcription.api_key и повторите отправку.',
                 null,
                 null
             );
