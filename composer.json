@@ -14,6 +14,7 @@
             "php smoke/minimal-config-surface.php",
             "php smoke/runtime-storage-layout.php",
             "php smoke/manager-worker-slots.php",
+            "php smoke/manager-queue-dispatcher.php",
             "php smoke/background-supervisor-router-bootstrap.php",
             "php smoke/doctor-ready-config.php",
             "php smoke/gpt-audio-transcriber.php",

@@ -11,6 +11,7 @@ use CodexRuntime\Contracts\StatusMessageServiceInterface;
 use CodexRuntime\Contracts\TransportClientInterface;
 use CodexRuntime\Contracts\FinalResponseDeliveryInterface;
 use CodexRuntime\ManagerQueue\EventRepository;
+use CodexRuntime\ManagerQueue\ManagerQueueDispatcher;
 use RuntimeException;
 use Throwable;
 
@@ -63,11 +64,8 @@ final class ManagerWorker
 
     private function runWithSlot(): void
     {
-        $requeued = $this->events->requeueAllRunning();
+        $dispatcher = new ManagerQueueDispatcher($this->config, $this->events);
         $this->logger->info('Manager worker started');
-        if ($requeued !== []) {
-            $this->logger->info('Requeued stale manager events', ['event_ids' => $requeued]);
-        }
         $pollIntervalMs = (int) $this->config->get('manager_queue', 'poll_interval_ms', 1000);
 
         while (true) {
@@ -76,51 +74,62 @@ final class ManagerWorker
                 return;
             }
 
-            $runningPath = null;
-            $event = null;
-            try {
-                $nextPath = $this->events->nextPendingPath();
-                if ($nextPath === null) {
-                    usleep($pollIntervalMs * 1000);
-                    continue;
-                }
-
-                $runningPath = $this->events->moveToRunning($nextPath);
-                $event = $this->events->loadEvent($runningPath);
-                $this->startStandbyWorker();
-                $eventId = (string) ($event['id'] ?? basename($runningPath, '.json'));
-                $this->markActive($event);
-                $this->logger->info('Manager worker handling event', [
-                    'event_id' => $eventId,
-                    'type' => $event['type'] ?? 'unknown',
-                    'priority' => $event['priority'] ?? null,
-                ]);
-
-                $result = $this->processEvent($event);
-                $this->events->finish($runningPath, !empty($result['ok']) ? 'done' : 'failed', $result);
-                $this->clearActive(!empty($result['ok']));
-            } catch (Throwable $e) {
-                $this->logger->error('Manager worker error', ['error' => $e->getMessage()]);
-                if ($runningPath !== null && is_file($runningPath)) {
-                    try {
-                        $failedEventId = is_array($event) ? (string) ($event['id'] ?? basename($runningPath, '.json')) : basename($runningPath, '.json');
-                        $this->events->finish($runningPath, 'failed', [
-                            'ok' => false,
-                            'stdout' => '',
-                            'stderr' => $e->getMessage(),
-                            'event_type' => is_array($event) ? (string) ($event['type'] ?? 'unknown') : 'unknown',
-                            'event_id' => $failedEventId,
-                        ]);
-                    } catch (Throwable $finishError) {
-                        $this->logger->error('Manager worker failed to finalize errored event', [
-                            'error' => $finishError->getMessage(),
-                            'running_path' => $runningPath,
-                        ]);
-                    }
-                }
-                $this->clearActive(false);
+            $claim = $dispatcher->claimNext();
+            if ($claim === null) {
                 usleep($pollIntervalMs * 1000);
+                continue;
             }
+
+            $this->startStandbyWorker();
+            try {
+                $this->handleClaimedEvent($claim->running_path, $claim->event);
+                while ($claim->session_id !== '') {
+                    $next = $dispatcher->claimNextForSession($claim->session_id);
+                    if ($next === null) {
+                        break;
+                    }
+                    $this->handleClaimedEvent($next['running_path'], $next['event']);
+                }
+            } finally {
+                $claim->release();
+            }
+        }
+    }
+
+    private function handleClaimedEvent(string $running_path, array $event): void
+    {
+        try {
+            $event_id = (string) ($event['id'] ?? basename($running_path, '.json'));
+            $this->markActive($event);
+            $this->logger->info('Manager worker handling event', [
+                'event_id' => $event_id,
+                'type' => $event['type'] ?? 'unknown',
+                'priority' => $event['priority'] ?? null,
+            ]);
+
+            $result = $this->processEvent($event);
+            $this->events->finish($running_path, !empty($result['ok']) ? 'done' : 'failed', $result);
+            $this->clearActive(!empty($result['ok']));
+        } catch (Throwable $error) {
+            $this->logger->error('Manager worker error', ['error' => $error->getMessage()]);
+            if (is_file($running_path)) {
+                try {
+                    $failed_event_id = (string) ($event['id'] ?? basename($running_path, '.json'));
+                    $this->events->finish($running_path, 'failed', [
+                        'ok' => false,
+                        'stdout' => '',
+                        'stderr' => $error->getMessage(),
+                        'event_type' => (string) ($event['type'] ?? 'unknown'),
+                        'event_id' => $failed_event_id,
+                    ]);
+                } catch (Throwable $finish_error) {
+                    $this->logger->error('Manager worker failed to finalize errored event', [
+                        'error' => $finish_error->getMessage(),
+                        'running_path' => $running_path,
+                    ]);
+                }
+            }
+            $this->clearActive(false);
         }
     }
 

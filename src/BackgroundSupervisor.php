@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace CodexRuntime;
 
+use CodexRuntime\ManagerQueue\EventRepository;
 use losthost\BackgroundProcess\BackgroundProcess;
 use RuntimeException;
 
@@ -31,6 +32,10 @@ final class BackgroundSupervisor
         );
 
         if (!$this->hasActiveManagerWorker()) {
+            $requeued = (new EventRepository($this->config))->requeueAllRunning();
+            if ($requeued !== []) {
+                $this->logger->info('Requeued stale manager events', ['event_ids' => $requeued]);
+            }
             $this->startManagerWorker();
         }
 

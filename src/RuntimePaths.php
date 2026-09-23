@@ -129,6 +129,16 @@ final class RuntimePaths
         return $this->runDir() . '/manager-worker-slot-' . $slot_number . '.lock';
     }
 
+    public function managerSessionLockFile(string $runtime_session_id): string
+    {
+        $runtime_session_id = trim($runtime_session_id);
+        if ($runtime_session_id === '') {
+            throw new RuntimeException('Runtime session ID must not be empty');
+        }
+
+        return $this->runDir() . '/manager-session-' . hash('sha256', $runtime_session_id) . '.lock';
+    }
+
     private function normalizeWorkerName(string $worker): string
     {
         $normalized = trim($worker);

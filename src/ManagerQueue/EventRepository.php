@@ -85,10 +85,16 @@ final class EventRepository
 
     public function nextPendingPath(): ?string
     {
+        return $this->pendingPaths()[0] ?? null;
+    }
+
+    /** @return list<string> */
+    public function pendingPaths(): array
+    {
         $dir = $this->layout->queueDir('manager', 'new');
         $files = glob($dir . '/*.json');
         if ($files === false || $files === []) {
-            return null;
+            return [];
         }
 
         usort($files, function (string $left, string $right): int {
@@ -104,7 +110,7 @@ final class EventRepository
             return strcmp((string) ($leftEvent['created_at'] ?? ''), (string) ($rightEvent['created_at'] ?? ''));
         });
 
-        return $files[0];
+        return array_values($files);
     }
 
     public function loadEvent(string $path): array
@@ -131,6 +137,21 @@ final class EventRepository
         }
 
         return $target;
+    }
+
+    public function tryMoveToRunning(string $path): ?string
+    {
+        $id = basename($path, '.json');
+        $target = $this->queuePath('running', $id);
+        if (@rename($path, $target)) {
+            return $target;
+        }
+
+        if (!is_file($path)) {
+            return null;
+        }
+
+        throw new RuntimeException("Cannot move {$id} to running");
     }
 
     /**
