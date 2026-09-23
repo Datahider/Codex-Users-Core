@@ -55,8 +55,13 @@ final class JsonFileStore
             throw new RuntimeException('Cannot encode state json');
         }
 
-        if (file_put_contents($this->path, $json . PHP_EOL, LOCK_EX) === false) {
-            throw new RuntimeException("Cannot write {$this->path}");
+        $tmp_path = $dir . '/.' . basename($this->path) . '.tmp-' . bin2hex(random_bytes(4));
+        if (file_put_contents($tmp_path, $json . PHP_EOL, LOCK_EX) === false) {
+            throw new RuntimeException("Cannot write {$tmp_path}");
+        }
+        if (!rename($tmp_path, $this->path)) {
+            @unlink($tmp_path);
+            throw new RuntimeException("Cannot atomically replace {$this->path}");
         }
     }
 
