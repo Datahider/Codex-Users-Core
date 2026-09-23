@@ -9,6 +9,8 @@ use CodexRuntime\Config;
 use CodexRuntime\Document\DocumentSender;
 use CodexRuntime\Document\FileExchangeApiClient;
 use CodexRuntime\Mcp\StdioServer;
+use CodexRuntime\Mcp\UnavailableFileTool;
+use CodexRuntime\OptionalFeatureConfig;
 use CodexRuntime\Image\ImageSender;
 use CodexRuntime\Router\ApiClient;
 use CodexRuntime\Router\CurlHttpClient;
@@ -24,17 +26,22 @@ if ($config_path === '' || $runtime_session_id === '') {
 }
 
 $config = Config::fromFile($config_path);
-$file_exchange = new FileExchangeApiClient(
-    (string) $config->require('file_exchange', 'base_url'),
-    (string) $config->require('file_exchange', 'token')
-);
 $delivery = new RouterDeliveryClient(new ApiClient(
     (string) $config->require('router', 'base_url'),
     (string) $config->require('router', 'core_token'),
     new CurlHttpClient()
 ));
-$document_sender = new DocumentSender($file_exchange, $delivery, $runtime_session_id);
-$image_sender = new ImageSender($file_exchange, $delivery, $runtime_session_id);
+$missing_file_exchange = (new OptionalFeatureConfig($config))->missingFileExchangeValues();
+if ($missing_file_exchange === []) {
+    $file_exchange = new FileExchangeApiClient(
+        (string) $config->require('file_exchange', 'base_url'),
+        (string) $config->require('file_exchange', 'token')
+    );
+    $document_sender = new DocumentSender($file_exchange, $delivery, $runtime_session_id);
+    $image_sender = new ImageSender($file_exchange, $delivery, $runtime_session_id);
+} else {
+    $document_sender = $image_sender = new UnavailableFileTool($missing_file_exchange);
+}
 $response_delivery = new ResponseDeliveryTool(
     new VoiceResponseModeStore((new RuntimePaths($config))->voiceResponseModesFile()),
     $runtime_session_id

@@ -171,6 +171,7 @@ use CodexRuntime\Attachment\VoiceAttachmentProcessor;
 use CodexRuntime\Attachment\InboundAttachmentLocalizer;
 use CodexRuntime\Audio\CurlTranscriptionHttpClient;
 use CodexRuntime\Audio\GptAudioTranscriber;
+use CodexRuntime\Audio\UnavailableAudioTranscriber;
 use CodexRuntime\Config;
 use CodexRuntime\CodexProcess;
 use CodexRuntime\CodexAppServerRateLimitsProvider;
@@ -180,17 +181,20 @@ use CodexRuntime\LimitMonitor;
 use CodexRuntime\SystemClock;
 use CodexRuntime\ManagerQueue\EventRepository;
 use CodexRuntime\ManagerWorker;
+use CodexRuntime\OptionalFeatureConfig;
 use CodexRuntime\Router\ApiClient;
 use CodexRuntime\Router\CurlHttpClient;
 use CodexRuntime\Router\RouterStatusMessageService;
 use CodexRuntime\Router\RouterTransportClient;
 use CodexRuntime\Router\RouterDeliveryClient;
 use CodexRuntime\RuntimePaths;
+use CodexRuntime\TextFinalDeliveryService;
 use CodexRuntime\WorkerShutdownFlag;
 use CodexRuntime\Document\FileExchangeApiClient;
 use CodexRuntime\Voice\CodexLunaVoiceSuitabilityClassifier;
 use CodexRuntime\Voice\CurlSpeechHttpClient;
 use CodexRuntime\Voice\OpenAiSpeechSynthesizer;
+use CodexRuntime\Voice\UnavailableVoiceFinalDeliveryService;
 use CodexRuntime\Voice\VoiceFinalDeliveryService;
 use CodexRuntime\Voice\VoiceFinalPlanner;
 use CodexRuntime\Voice\VoicePreferenceStore;
@@ -213,40 +217,47 @@ $statusMessages = new RouterStatusMessageService($config, $transport);
 $shutdown = new WorkerShutdownFlag($config, 'background', 'manager_worker_shutdown_flag_file', $paths->workerShutdownFlagFile('manager_worker'));
 $activeTurn = new ActiveTurnRegistry($paths->activeTurnFile());
 $codex = new CodexProcess($config, $logger, $activeTurn, $configPath);
+$features = new OptionalFeatureConfig($config);
 $attachmentDownloader = new FilesIoannidisAttachmentDownloader(new CurlFileDownloadHttpClient());
-$voiceAttachments = new VoiceAttachmentProcessor(
-    $attachmentDownloader,
-    new GptAudioTranscriber(
+$missingTranscription = $features->missingTranscriptionValues();
+$transcriber = $missingTranscription === []
+    ? new GptAudioTranscriber(
         (string) $config->require('transcription', 'api_key'),
         (string) $config->require('transcription', 'model'),
         new CurlTranscriptionHttpClient()
     )
+    : new UnavailableAudioTranscriber($missingTranscription);
+$voiceAttachments = new VoiceAttachmentProcessor(
+    $attachmentDownloader,
+    $transcriber
 );
 $attachmentLocalizer = new InboundAttachmentLocalizer($attachmentDownloader, $paths->attachmentsDir());
 $limitMonitor = new LimitMonitor($config, new CodexAppServerRateLimitsProvider($config), $transport, new SystemClock());
-$allowedVoices = $config->requireList('voice_response', 'allowed_voices');
-$preference = new VoicePreferenceStore($paths->voicePreferenceFile(), (string) $config->require('voice_response', 'default_voice'), array_map('strval', $allowedVoices));
-$synthesizer = new OpenAiSpeechSynthesizer(
-    (string) $config->require('transcription', 'api_key'),
-    (string) $config->require('speech', 'model'),
-    $paths->tmpDir(),
-    new CurlSpeechHttpClient()
-);
-$voiceSender = new VoiceSender(
-    new FileExchangeApiClient((string) $config->require('file_exchange', 'base_url'), (string) $config->require('file_exchange', 'token')),
-    new RouterDeliveryClient($api, $logger, $retrySeconds)
-);
-$finalDelivery = new VoiceFinalDeliveryService(
-    new VoiceFinalPlanner(
-        $config,
-        new VoiceResponseModeStore($paths->voiceResponseModesFile()),
-        new CodexLunaVoiceSuitabilityClassifier($config, $paths->tmpDir())
-    ),
-    $preference,
-    $synthesizer,
-    $voiceSender,
-    $limitMonitor
-);
+$modeStore = new VoiceResponseModeStore($paths->voiceResponseModesFile());
+$missingVoice = $features->missingVoiceResponseValues();
+if ($missingVoice !== []) {
+    $finalDelivery = new UnavailableVoiceFinalDeliveryService($modeStore, new TextFinalDeliveryService($limitMonitor), $missingVoice);
+} else {
+    $allowedVoices = $config->requireList('voice_response', 'allowed_voices');
+    $preference = new VoicePreferenceStore($paths->voicePreferenceFile(), (string) $config->require('voice_response', 'default_voice'), array_map('strval', $allowedVoices));
+    $synthesizer = new OpenAiSpeechSynthesizer(
+        (string) $config->require('transcription', 'api_key'),
+        (string) $config->require('speech', 'model'),
+        $paths->tmpDir(),
+        new CurlSpeechHttpClient()
+    );
+    $voiceSender = new VoiceSender(
+        new FileExchangeApiClient((string) $config->require('file_exchange', 'base_url'), (string) $config->require('file_exchange', 'token')),
+        new RouterDeliveryClient($api, $logger, $retrySeconds)
+    );
+    $finalDelivery = new VoiceFinalDeliveryService(
+        new VoiceFinalPlanner($config, $modeStore, new CodexLunaVoiceSuitabilityClassifier($config, $paths->tmpDir())),
+        $preference,
+        $synthesizer,
+        $voiceSender,
+        $limitMonitor
+    );
+}
 $startStandby = static function () use ($config, $logger, $configPath): void {
     (new BackgroundSupervisor($config, $logger, $configPath))->startManagerWorker();
 };
@@ -323,6 +334,7 @@ use CodexRuntime\Logger;
 use CodexRuntime\LimitMonitor;
 use CodexRuntime\SystemClock;
 use CodexRuntime\ManagerQueue\EventRepository;
+use CodexRuntime\OptionalFeatureConfig;
 use CodexRuntime\Router\ApiClient;
 use CodexRuntime\Router\CurlHttpClient;
 use CodexRuntime\Router\RouterTransportClient;
@@ -333,6 +345,7 @@ use CodexRuntime\WorkerShutdownFlag;
 use CodexRuntime\Document\FileExchangeApiClient;
 use CodexRuntime\Voice\CurlSpeechHttpClient;
 use CodexRuntime\Voice\OpenAiSpeechSynthesizer;
+use CodexRuntime\Voice\UnavailableVoiceCommandService;
 use CodexRuntime\Voice\VoiceCommandService;
 use CodexRuntime\Voice\VoicePreferenceStore;
 use CodexRuntime\Voice\VoiceSender;
@@ -353,19 +366,24 @@ $ingress = new TransportMessageIngress(new EventRepository($config));
 $sessions = new CodexSessionCatalog();
 $shutdown = new WorkerShutdownFlag($config, 'background', 'control_watcher_shutdown_flag_file', $paths->workerShutdownFlagFile('control_watcher'));
 $limitMonitor = new LimitMonitor($config, new CodexAppServerRateLimitsProvider($config), $transport, new SystemClock());
-$allowedVoices = $config->requireList('voice_response', 'allowed_voices');
-$preference = new VoicePreferenceStore($paths->voicePreferenceFile(), (string) $config->require('voice_response', 'default_voice'), array_map('strval', $allowedVoices));
-$synthesizer = new OpenAiSpeechSynthesizer(
-    (string) $config->require('transcription', 'api_key'),
-    (string) $config->require('speech', 'model'),
-    $paths->tmpDir(),
-    new CurlSpeechHttpClient()
-);
-$voiceSender = new VoiceSender(
-    new FileExchangeApiClient((string) $config->require('file_exchange', 'base_url'), (string) $config->require('file_exchange', 'token')),
-    new RouterDeliveryClient($api, $logger, $retrySeconds)
-);
-$voiceCommands = new VoiceCommandService($preference, $synthesizer, $voiceSender, $paths->voiceSamplesDir());
+$missingVoice = (new OptionalFeatureConfig($config))->missingVoiceResponseValues();
+if ($missingVoice !== []) {
+    $voiceCommands = new UnavailableVoiceCommandService($missingVoice);
+} else {
+    $allowedVoices = $config->requireList('voice_response', 'allowed_voices');
+    $preference = new VoicePreferenceStore($paths->voicePreferenceFile(), (string) $config->require('voice_response', 'default_voice'), array_map('strval', $allowedVoices));
+    $synthesizer = new OpenAiSpeechSynthesizer(
+        (string) $config->require('transcription', 'api_key'),
+        (string) $config->require('speech', 'model'),
+        $paths->tmpDir(),
+        new CurlSpeechHttpClient()
+    );
+    $voiceSender = new VoiceSender(
+        new FileExchangeApiClient((string) $config->require('file_exchange', 'base_url'), (string) $config->require('file_exchange', 'token')),
+        new RouterDeliveryClient($api, $logger, $retrySeconds)
+    );
+    $voiceCommands = new VoiceCommandService($preference, $synthesizer, $voiceSender, $paths->voiceSamplesDir());
+}
 $watcher = new ControlWatcher($config, $logger, $commands, $activeTurn, $stateStore, $transport, $ingress, $sessions, $shutdown, $limitMonitor, $voiceCommands);
 $watcher->run();
 PHP,
