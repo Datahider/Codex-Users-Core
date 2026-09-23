@@ -48,16 +48,15 @@ final class SessionRouteStore
             return;
         }
 
-        $state = $this->store->read();
-        $existing = $state['sessions'][$sessionId] ?? [];
-        if (!is_array($existing)) {
-            $existing = [];
-        }
-
-        $state['sessions'][$sessionId] = array_merge($existing, $attributes, [
-            'updated_at' => date(DATE_ATOM),
-        ]);
-
-        $this->store->write($state);
+        $this->store->update(static function (array $state) use ($sessionId, $attributes): array {
+            $existing = $state['sessions'][$sessionId] ?? [];
+            if (!is_array($existing)) {
+                $existing = [];
+            }
+            $state['sessions'][$sessionId] = array_merge($existing, $attributes, [
+                'updated_at' => date(DATE_ATOM),
+            ]);
+            return $state;
+        });
     }
 }

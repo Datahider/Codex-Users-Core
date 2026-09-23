@@ -17,6 +17,9 @@ use Throwable;
 
 final class ManagerWorker
 {
+    private string $active_task_id = '';
+    private string $active_session_id = '';
+
     public function __construct(
         private Config $config,
         private Logger $logger,
@@ -182,17 +185,8 @@ final class ManagerWorker
                 throw new RuntimeException('Empty text for user_message');
             }
 
-        $state = $this->readManagerState();
-        $codexSessionId = $this->resolveCodexSessionId($state, $runtimeSessionId);
+        $codexSessionId = $this->resolveCodexSessionId($this->readManagerState(), $runtimeSessionId);
         $outboundSessionId = $runtimeSessionId;
-        $stateChanged = $this->rememberSessionRoute(
-            $state,
-            $outboundSessionId,
-            $codexSessionId
-        );
-        if ($stateChanged) {
-            $this->stateStore->write($state);
-        }
         $workingDir = $this->resolveWorkingDir(null);
         $prompt = $this->buildUserPrompt($runtimeSessionId, $text, $codexSessionId);
         if ($outboundSessionId !== 'none') {
@@ -216,13 +210,7 @@ final class ManagerWorker
         }, $runtimeSessionId);
 
         $finalCodexSessionId = trim((string) ($result['session_id'] ?? '')) ?: $codexSessionId;
-        if ($this->rememberSessionRoute(
-            $state,
-            $runtimeSessionId,
-            $finalCodexSessionId
-        )) {
-            $this->stateStore->write($state);
-        }
+        $this->rememberSessionRoute($runtimeSessionId, $finalCodexSessionId);
 
         $finalText = trim((string) ($result['text'] ?? ''));
         if ($finalText === '') {
@@ -253,11 +241,7 @@ final class ManagerWorker
             throw new RuntimeException('Missing session_id for scheduled_prompt');
         }
 
-        $state = $this->readManagerState();
-        $codexSessionId = $this->resolveCodexSessionId($state, $runtimeSessionId);
-        if ($this->rememberSessionRoute($state, $runtimeSessionId, $codexSessionId)) {
-            $this->stateStore->write($state);
-        }
+        $codexSessionId = $this->resolveCodexSessionId($this->readManagerState(), $runtimeSessionId);
 
         $this->statusMessages->sendHeartbeat($runtimeSessionId);
 
@@ -276,9 +260,7 @@ final class ManagerWorker
         );
 
         $finalCodexSessionId = trim((string) ($result['session_id'] ?? '')) ?: $codexSessionId;
-        if ($this->rememberSessionRoute($state, $runtimeSessionId, $finalCodexSessionId)) {
-            $this->stateStore->write($state);
-        }
+        $this->rememberSessionRoute($runtimeSessionId, $finalCodexSessionId);
 
         $finalText = trim((string) ($result['text'] ?? ''));
         if ($finalText === '') {
@@ -330,10 +312,7 @@ final class ManagerWorker
         );
 
         $finalCodexSessionId = trim((string) ($result['session_id'] ?? '')) ?: $codexSessionId;
-        $state = $this->readManagerState();
-        if ($this->rememberSessionRoute($state, $runtimeSessionId, $finalCodexSessionId)) {
-            $this->stateStore->write($state);
-        }
+        $this->rememberSessionRoute($runtimeSessionId, $finalCodexSessionId);
 
         $finalText = trim((string) ($result['text'] ?? ''));
         if ($finalText === '') {
@@ -506,23 +485,17 @@ TEXT;
 
     private function markActive(array $event): void
     {
-        $state = $this->readManagerState();
-        $state['active_task_id'] = (string) ($event['id'] ?? '');
-        $state['active_type'] = (string) ($event['type'] ?? '');
-        $state['active_priority'] = (int) ($event['priority'] ?? 50);
-        $state['active_started_at'] = date(DATE_ATOM);
-        $state['active_session_id'] = trim((string) ($event['session_id'] ?? ''));
-        $this->stateStore->write($state);
-        $this->statusMessages->updateWorkerBusy((string) $state['active_task_id'], $state['active_session_id']);
+        $this->active_task_id = (string) ($event['id'] ?? '');
+        $this->active_session_id = trim((string) ($event['session_id'] ?? ''));
+        $this->statusMessages->updateWorkerBusy($this->active_task_id, $this->active_session_id);
     }
 
     private function clearActive(bool $notifyIdle = true): void
     {
-        $state = $this->readManagerState();
-        $activeSessionId = trim((string) ($state['active_session_id'] ?? ''));
-        $activeTaskId = trim((string) ($state['active_task_id'] ?? ''));
-        unset($state['active_task_id'], $state['active_type'], $state['active_priority'], $state['active_started_at']);
-        $this->stateStore->write($state);
+        $activeSessionId = $this->active_session_id;
+        $activeTaskId = $this->active_task_id;
+        $this->active_session_id = '';
+        $this->active_task_id = '';
         if ($notifyIdle) {
             $this->statusMessages->updateWorkerIdle($activeSessionId);
             return;
@@ -539,39 +512,31 @@ TEXT;
 
         return [
             'sessions' => is_array($state['sessions'] ?? null) ? $state['sessions'] : [],
-            'active_task_id' => isset($state['active_task_id']) ? (string) $state['active_task_id'] : null,
-            'active_type' => isset($state['active_type']) ? (string) $state['active_type'] : null,
-            'active_priority' => isset($state['active_priority']) ? (int) $state['active_priority'] : null,
-            'active_started_at' => isset($state['active_started_at']) ? (string) $state['active_started_at'] : null,
-            'active_session_id' => isset($state['active_session_id']) ? (string) $state['active_session_id'] : null,
         ];
     }
 
-    private function rememberSessionRoute(
-        array &$state,
-        string $runtimeSessionId,
-        ?string $codexSessionId = null
-    ): bool {
+    private function rememberSessionRoute(string $runtimeSessionId, ?string $codexSessionId = null): bool
+    {
         $runtimeSessionId = trim($runtimeSessionId);
         if ($runtimeSessionId === '' || $runtimeSessionId === 'none') {
             return false;
         }
 
-        $state['sessions'] ??= [];
-        $current = trim((string) ($state['sessions'][$runtimeSessionId] ?? ''));
-        $next = $current;
         $resolvedCodexSessionId = trim((string) ($codexSessionId ?? ''));
-        if ($resolvedCodexSessionId !== '') {
-            $next = $resolvedCodexSessionId;
+        if ($resolvedCodexSessionId === '') {
+            return false;
         }
 
-        if ($next === '') {
-            unset($state['sessions'][$runtimeSessionId]);
-        } else {
-            $state['sessions'][$runtimeSessionId] = $next;
-        }
+        $changed = false;
+        $this->stateStore->update(static function (array $state) use ($runtimeSessionId, $resolvedCodexSessionId, &$changed): array {
+            $state['sessions'] ??= [];
+            $current = trim((string) ($state['sessions'][$runtimeSessionId] ?? ''));
+            $changed = $current !== $resolvedCodexSessionId;
+            $state['sessions'][$runtimeSessionId] = $resolvedCodexSessionId;
+            return $state;
+        });
 
-        return $current !== $next;
+        return $changed;
     }
 
     private function startStandbyWorker(): void

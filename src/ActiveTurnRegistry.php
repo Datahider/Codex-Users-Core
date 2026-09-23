@@ -17,27 +17,32 @@ final class ActiveTurnRegistry
      */
     public function begin(array $turn): void
     {
+        $runtime_session_id = trim((string) ($turn['runtime_session_id'] ?? ''));
+        if ($runtime_session_id === '') {
+            throw new RuntimeException('Active turn runtime_session_id must not be empty');
+        }
         $turn['started_at'] ??= date(DATE_ATOM);
-        $this->write($turn);
+        $this->write($runtime_session_id, $turn);
     }
 
     /**
      * @return array<string, mixed>|null
      */
-    public function current(): ?array
+    public function current(string $runtime_session_id): ?array
     {
-        if (!is_file($this->path)) {
+        $path = $this->sessionPath($runtime_session_id);
+        if (!is_file($path)) {
             return null;
         }
 
-        $raw = file_get_contents($this->path);
+        $raw = file_get_contents($path);
         if ($raw === false || trim($raw) === '') {
             return null;
         }
 
         $data = json_decode($raw, true);
         if (!is_array($data)) {
-            throw new RuntimeException("Invalid JSON in {$this->path}");
+            throw new RuntimeException("Invalid JSON in {$path}");
         }
 
         return $data;
@@ -46,9 +51,9 @@ final class ActiveTurnRegistry
     /**
      * @return array{signal_sent: bool, pid: ?int, active_turn: ?array<string, mixed>}
      */
-    public function requestStop(): array
+    public function requestStop(string $runtime_session_id): array
     {
-        $activeTurn = $this->current();
+        $activeTurn = $this->current($runtime_session_id);
         if ($activeTurn === null) {
             return [
                 'signal_sent' => false,
@@ -65,7 +70,7 @@ final class ActiveTurnRegistry
 
         $activeTurn['stop_requested_at'] = date(DATE_ATOM);
         $activeTurn['stop_signal'] = 'SIGTERM';
-        $this->write($activeTurn);
+        $this->write($runtime_session_id, $activeTurn);
 
         return [
             'signal_sent' => $signalSent,
@@ -74,31 +79,43 @@ final class ActiveTurnRegistry
         ];
     }
 
-    public function clear(): void
+    public function clear(string $runtime_session_id): void
     {
-        if (is_file($this->path)) {
-            @unlink($this->path);
+        $path = $this->sessionPath($runtime_session_id);
+        if (is_file($path)) {
+            @unlink($path);
         }
     }
 
     /**
      * @param array<string, mixed> $data
      */
-    private function write(array $data): void
+    private function write(string $runtime_session_id, array $data): void
     {
-        $dir = dirname($this->path);
+        $path = $this->sessionPath($runtime_session_id);
+        $dir = dirname($path);
         if (!is_dir($dir) && !mkdir($dir, 0775, true) && !is_dir($dir)) {
             throw new RuntimeException("Cannot create directory {$dir}");
         }
 
         $json = json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         if ($json === false) {
-            throw new RuntimeException("Cannot encode active turn JSON for {$this->path}");
+            throw new RuntimeException("Cannot encode active turn JSON for {$path}");
         }
 
-        if (file_put_contents($this->path, $json . PHP_EOL, LOCK_EX) === false) {
-            throw new RuntimeException("Cannot write {$this->path}");
+        if (file_put_contents($path, $json . PHP_EOL, LOCK_EX) === false) {
+            throw new RuntimeException("Cannot write {$path}");
         }
+    }
+
+    private function sessionPath(string $runtime_session_id): string
+    {
+        $runtime_session_id = trim($runtime_session_id);
+        if ($runtime_session_id === '') {
+            throw new RuntimeException('Active turn runtime_session_id must not be empty');
+        }
+
+        return $this->path . '.d/' . hash('sha256', $runtime_session_id) . '.json';
     }
 
     private function signalPid(int $pid): bool

@@ -59,4 +59,33 @@ final class JsonFileStore
             throw new RuntimeException("Cannot write {$this->path}");
         }
     }
+
+    public function update(callable $updater): array
+    {
+        $lock_path = $this->path . '.lock';
+        $dir = dirname($lock_path);
+        if (!is_dir($dir) && !mkdir($dir, 0775, true) && !is_dir($dir)) {
+            throw new RuntimeException("Cannot create directory {$dir}");
+        }
+        $handle = fopen($lock_path, 'c+e');
+        if ($handle === false) {
+            throw new RuntimeException("Cannot open {$lock_path}");
+        }
+        if (!flock($handle, LOCK_EX)) {
+            fclose($handle);
+            throw new RuntimeException("Cannot lock {$lock_path}");
+        }
+
+        try {
+            $updated = $updater($this->read());
+            if (!is_array($updated)) {
+                throw new RuntimeException('JSON store updater must return array');
+            }
+            $this->write($updated);
+            return $updated;
+        } finally {
+            flock($handle, LOCK_UN);
+            fclose($handle);
+        }
+    }
 }

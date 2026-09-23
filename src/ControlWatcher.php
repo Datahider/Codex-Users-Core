@@ -222,10 +222,13 @@ final class ControlWatcher
      */
     private function processResetSessionCommand(array $command, int|string $channelId, string $runtimeSessionId): array
     {
-        $state = $this->readManagerState();
-        $hadSession = array_key_exists($runtimeSessionId, $state['sessions']);
-        unset($state['sessions'][$runtimeSessionId]);
-        $this->stateStore->write($state);
+        $hadSession = false;
+        $this->stateStore->update(static function (array $state) use ($runtimeSessionId, &$hadSession): array {
+            $state['sessions'] ??= [];
+            $hadSession = array_key_exists($runtimeSessionId, $state['sessions']);
+            unset($state['sessions'][$runtimeSessionId]);
+            return $state;
+        });
 
         $this->transport->sendSystem($runtimeSessionId, 'Текущая сессия сброшена.');
 
@@ -246,7 +249,7 @@ final class ControlWatcher
      */
     private function processStopTransportCommand(array $command, int|string $channelId, string $runtimeSessionId): array
     {
-        $result = $this->activeTurn->requestStop();
+        $result = $this->activeTurn->requestStop($runtimeSessionId);
 
         return [
             'ok' => true,
@@ -283,9 +286,11 @@ final class ControlWatcher
             ];
         }
 
-        $state = $this->readManagerState();
-        $state['sessions'][$runtimeSessionId] = $sessionId;
-        $this->stateStore->write($state);
+        $this->stateStore->update(static function (array $state) use ($runtimeSessionId, $sessionId): array {
+            $state['sessions'] ??= [];
+            $state['sessions'][$runtimeSessionId] = $sessionId;
+            return $state;
+        });
 
         $this->transport->sendSystem(
             $runtimeSessionId,

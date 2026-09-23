@@ -86,14 +86,16 @@ final class CodexProcess
 
         $status = proc_get_status($process);
         $pid = isset($status['pid']) && is_numeric($status['pid']) ? (int) $status['pid'] : null;
-        $this->activeTurn->begin([
-            'pid' => $pid,
-            'runtime_session_id' => $runtimeSessionId,
-            'codex_session_id' => $sessionId,
-            'worker_pid' => getmypid(),
-            'working_dir' => $resolvedWorkingDir,
-            'command' => $command,
-        ]);
+        if ($runtimeSessionId !== null && trim($runtimeSessionId) !== '') {
+            $this->activeTurn->begin([
+                'pid' => $pid,
+                'runtime_session_id' => $runtimeSessionId,
+                'codex_session_id' => $sessionId,
+                'worker_pid' => getmypid(),
+                'working_dir' => $resolvedWorkingDir,
+                'command' => $command,
+            ]);
+        }
 
         try {
             fwrite($pipes[0], $prompt);
@@ -220,7 +222,9 @@ final class CodexProcess
             if (is_file($outputFile)) {
                 @unlink($outputFile);
             }
-            $this->activeTurn->clear();
+            if ($runtimeSessionId !== null && trim($runtimeSessionId) !== '') {
+                $this->activeTurn->clear($runtimeSessionId);
+            }
         }
     }
 
