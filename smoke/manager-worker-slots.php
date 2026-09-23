@@ -33,7 +33,6 @@ $tmp_root = sys_get_temp_dir() . '/codex-manager-slots-' . bin2hex(random_bytes(
 try {
     $config = new Config([
         'storage' => ['root' => $tmp_root],
-        'manager_queue' => ['max_workers' => 1],
     ]);
 
     $first = new ManagerWorkerSlot($config);
@@ -41,6 +40,7 @@ try {
 
     assertSame(true, $first->acquire(), 'first worker acquires slot');
     assertSame(1, $first->number(), 'first worker slot number');
+    assertSame(1, $first->capacity(), 'missing max_workers defaults to one');
     assertSame(false, $second->acquire(), 'second worker is rejected by capacity');
     assertSame(null, $second->number(), 'rejected worker has no slot');
 
