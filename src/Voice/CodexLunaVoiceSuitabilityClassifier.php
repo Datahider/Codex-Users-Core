@@ -31,7 +31,7 @@ final class CodexLunaVoiceSuitabilityClassifier implements VoiceSuitabilityClass
         ];
         file_put_contents($schema_path, json_encode($schema, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR), LOCK_EX);
         $command = [
-            (string) $this->config->require('codex', 'bin'),
+            (string) $this->config->get('codex', 'bin', 'codex'),
             'exec',
             '--skip-git-repo-check',
             '--ephemeral',

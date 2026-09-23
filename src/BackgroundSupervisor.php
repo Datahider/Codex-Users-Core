@@ -128,7 +128,7 @@ final class BackgroundSupervisor
     private function hasActiveManagerWorker(): bool
     {
         $paths = new RuntimePaths($this->config);
-        $max_workers = (int) $this->config->require('manager_queue', 'max_workers');
+        $max_workers = (int) $this->config->get('manager_queue', 'max_workers', 1);
         if ($max_workers < 1) {
             throw new RuntimeException('manager_queue.max_workers must be greater than zero');
         }

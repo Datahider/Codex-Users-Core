@@ -15,7 +15,7 @@ final class ManagerWorkerSlot
 
     public function __construct(private Config $config)
     {
-        $this->max_workers = (int) $this->config->require('manager_queue', 'max_workers');
+        $this->max_workers = (int) $this->config->get('manager_queue', 'max_workers', 1);
         if ($this->max_workers < 1) {
             throw new RuntimeException('manager_queue.max_workers must be greater than zero');
         }

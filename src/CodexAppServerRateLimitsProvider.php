@@ -15,7 +15,7 @@ final class CodexAppServerRateLimitsProvider implements RateLimitsProviderInterf
 
     public function read(): array
     {
-        $codex_bin = trim((string) $this->config->require('codex', 'bin'));
+        $codex_bin = trim((string) $this->config->get('codex', 'bin', 'codex'));
         $timeout_seconds = (int) $this->config->get('limits', 'request_timeout_seconds', 10);
         if ($timeout_seconds <= 0) {
             throw new RuntimeException('Config value limits.request_timeout_seconds must be positive');

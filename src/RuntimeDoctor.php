@@ -45,38 +45,6 @@ final class RuntimeDoctor
             $issues[] = 'router.core_token is empty';
         }
 
-        $file_exchange_url = trim((string) $config->get('file_exchange', 'base_url', ''));
-        if ($file_exchange_url === '' || filter_var($file_exchange_url, FILTER_VALIDATE_URL) === false) {
-            $issues[] = 'file_exchange.base_url must be a valid URL';
-        }
-        if (trim((string) $config->get('file_exchange', 'token', '')) === '') {
-            $issues[] = 'file_exchange.token is empty';
-        }
-
-        $transcription_api_key = trim((string) $config->get('transcription', 'api_key', ''));
-        if ($transcription_api_key === '') {
-            $issues[] = 'transcription.api_key is empty';
-        }
-
-        $transcription_model = trim((string) $config->get('transcription', 'model', ''));
-        if ($transcription_model === '') {
-            $issues[] = 'transcription.model is empty';
-        }
-
-        if (trim((string) $config->get('speech', 'model', '')) === '') {
-            $issues[] = 'speech.model is empty';
-        }
-        $default_voice = strtolower(trim((string) $config->get('voice_response', 'default_voice', '')));
-        $allowed_voices = $config->get('voice_response', 'allowed_voices', []);
-        if (!is_array($allowed_voices) || $allowed_voices === []) {
-            $issues[] = 'voice_response.allowed_voices must be a non-empty array';
-        } else {
-            $normalized_voices = array_map(static fn (mixed $voice): string => strtolower(trim((string) $voice)), $allowed_voices);
-            if ($default_voice === '' || !in_array($default_voice, $normalized_voices, true)) {
-                $issues[] = 'voice_response.default_voice must occur in allowed_voices';
-            }
-        }
-
         $codexCwd = trim((string) $config->get('codex', 'cwd', ''));
         if ($codexCwd === '') {
             $issues[] = 'codex.cwd is empty';
@@ -91,7 +59,7 @@ final class RuntimeDoctor
             $issues = [...$issues, ...$this->diagnoseStorageRoot($storageRoot)];
         }
 
-        $codexBin = trim((string) $config->get('codex', 'bin', 'codex'));
+        $codexBin = (new OptionalFeatureConfig($config))->codexBin();
         if (Environment::resolveCommand($codexBin) === null) {
             $issues[] = "codex binary is not available in PATH: {$codexBin}";
         }

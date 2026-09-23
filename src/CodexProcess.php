@@ -231,7 +231,7 @@ final class CodexProcess
     private function buildCommand(string $prompt, ?string $sessionId, string $outputFile): array
     {
         $command = [
-            (string) $this->config->require('codex', 'bin'),
+            (string) $this->config->get('codex', 'bin', 'codex'),
             'exec',
         ];
 
