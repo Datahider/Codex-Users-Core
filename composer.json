@@ -19,6 +19,7 @@
             "php smoke/background-supervisor-router-bootstrap.php",
             "php smoke/doctor-ready-config.php",
             "php smoke/optional-feature-config.php",
+            "php smoke/optional-feature-unavailable.php",
             "php smoke/gpt-audio-transcriber.php",
             "php smoke/files-ioannidis-attachment-downloader.php",
             "php smoke/inbound-attachment-localization.php",
