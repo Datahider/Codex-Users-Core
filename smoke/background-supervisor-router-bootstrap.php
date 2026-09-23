@@ -35,7 +35,10 @@ try {
     assertContains('RouterStatusMessageService', $manager, 'manager router status bootstrap');
     assertContains('startManagerWorker', $manager, 'manager standby starter bootstrap');
     assertContains('$startStandby', $manager, 'manager standby callback bootstrap');
+    assertContains('UnavailableAudioTranscriber', $manager, 'optional transcription bootstrap');
+    assertContains('UnavailableVoiceFinalDeliveryService', $manager, 'optional voice final bootstrap');
     assertContains('RouterTransportClient', $control, 'control watcher router transport bootstrap');
+    assertContains('UnavailableVoiceCommandService', $control, 'optional voice command bootstrap');
     assertNotContains('QueueTransportClient', $manager, 'manager queue transport bootstrap');
     assertNotContains('QueueStatusMessageService', $manager, 'manager queue status bootstrap');
     assertNotContains('QueueTransportClient', $control, 'control queue transport bootstrap');
