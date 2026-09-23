@@ -66,18 +66,26 @@ Source of truth для таких skills находится внутри дер�
 
 Если нужно, путь к конфигу можно передать первым аргументом.
 
-В конфиге нужно задать:
+Для запуска Core в конфиге нужно задать:
 
 - `router.base_url`
 - `router.core_token`
-- `transcription.api_key`
-- `transcription.model`
-- `speech.model`
-- `voice_response.default_voice`
-- `voice_response.allowed_voices`
-- `file_exchange.base_url`
-- `file_exchange.token`
 - `codex.cwd`, если `codex` должен запускаться из другого каталога
+
+`codex.bin` по умолчанию равен `codex`, а `manager_queue.max_workers` — `1`.
+
+Голосовые функции и отправка файлов опциональны. Их параметры не
+блокируют запуск Core:
+
+- `transcription.api_key` и `transcription.model` нужны для расшифровки входящего голоса;
+- `speech.model`, `voice_response.default_voice` и
+  `voice_response.allowed_voices` нужны для голосовых ответов;
+- `file_exchange.base_url` и `file_exchange.token` нужны для
+  `send_document`, `send_image` и голосовых ответов.
+
+При обращении к ненастроенной функции Core не должен падать:
+входящий пользователь получает понятное сообщение, а MCP tool возвращает
+агенту ошибку с перечнем недостающих параметров.
 
 `storage.root` менять не обязательно. По умолчанию он равен:
 
@@ -90,7 +98,7 @@ Source of truth для таких skills находится внутри дер�
 При старте `bin/run-core.php` сам:
 
 - проверяет наличие и читаемость конфига
-- валидирует `router.base_url`, `router.core_token`, `transcription.api_key` и `transcription.model`
+- валидирует обязательные `router.base_url` и `router.core_token`
 - проверяет PHP-зависимости и нужные команды в `PATH`
 - создает локальную runtime-структуру каталогов под `storage.root`
 
@@ -144,8 +152,8 @@ PID запущенного launcher-процесса. Унаследованна
 
 ### Слоты manager worker
 
-Число одновременно запущенных `manager_worker` ограничивается обязательным
-параметром `manager_queue.max_workers`. Каждый экземпляр до чтения очереди
+Число одновременно запущенных `manager_worker` ограничивается параметром
+`manager_queue.max_workers` с дефолтом `1`. Каждый экземпляр до чтения очереди
 должен атомарно занять один из файловых слотов
 `<storage.root>/run/manager-worker-slot-<N>.lock`. Слот удерживается открытым
 file lock на протяжении всей жизни worker и автоматически освобождается при

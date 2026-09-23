@@ -84,6 +84,14 @@ Classifier failure, invalid classifier output, TTS failure, file upload failure
 and voice outbound failure are operation errors. They are not silently converted
 to a text response.
 
+Voice configuration is optional for Core startup. If `speech.model`,
+`transcription.api_key`, `voice_response.default_voice`,
+`voice_response.allowed_voices`, `file_exchange.base_url` or
+`file_exchange.token` is absent, text responses keep working. A request for a
+voice final is delivered as text with an explanation that voice responses are
+not configured. `/voice` and `/voices` return the same configuration explanation
+as `kind=system` instead of failing the control worker.
+
 ## Voice outbound
 
 An accepted response is synthesized from the original final without Markdown
@@ -117,6 +125,10 @@ or failure.
 ```
 
 Speech generation uses the same OpenAI API key as `transcription.api_key`.
+
+Incoming voice transcription is independently optional. If
+`transcription.api_key` or `transcription.model` is absent, Core responds to the
+user that voice recognition is not configured and does not start a Codex turn.
 
 `default_voice` must occur in the non-empty `allowed_voices` list. Unknown and
 disallowed voice names fail explicitly. Voice names are compared exactly after
