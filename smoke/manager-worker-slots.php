@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 use CodexRuntime\Config;
+use CodexRuntime\BackgroundSupervisor;
+use CodexRuntime\Logger;
 use CodexRuntime\ManagerWorkerSlot;
 
 require dirname(__DIR__) . '/src/bootstrap.php';
@@ -42,6 +44,10 @@ try {
     assertSame(false, $second->acquire(), 'second worker is rejected by capacity');
     assertSame(null, $second->number(), 'rejected worker has no slot');
 
+    $supervisor = new BackgroundSupervisor($config, new Logger($tmp_root . '/runtime.log'), __FILE__);
+    $has_active_manager = new ReflectionMethod($supervisor, 'hasActiveManagerWorker');
+    assertSame(true, $has_active_manager->invoke($supervisor), 'supervisor observes occupied manager slot');
+
     $command = [PHP_BINARY, __FILE__, $tmp_root, 'probe'];
     $pipes = [];
     $process = proc_open($command, [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
@@ -58,6 +64,7 @@ try {
     assertSame(false, $child_result['inherited'] ?? null, 'exec child does not inherit slot descriptor');
 
     $first->release();
+    assertSame(false, $has_active_manager->invoke($supervisor), 'supervisor observes released manager slot');
     assertSame(true, $second->acquire(), 'slot is reusable after release');
     assertSame(1, $second->number(), 'reused slot number');
     $second->release();

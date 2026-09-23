@@ -33,6 +33,8 @@ try {
     assertContains('CoreEventSource', $routerIngress, 'core event source bootstrap');
     assertContains('RouterTransportClient', $manager, 'manager router transport bootstrap');
     assertContains('RouterStatusMessageService', $manager, 'manager router status bootstrap');
+    assertContains('startManagerWorker', $manager, 'manager standby starter bootstrap');
+    assertContains('$startStandby', $manager, 'manager standby callback bootstrap');
     assertContains('RouterTransportClient', $control, 'control watcher router transport bootstrap');
     assertNotContains('QueueTransportClient', $manager, 'manager queue transport bootstrap');
     assertNotContains('QueueStatusMessageService', $manager, 'manager queue status bootstrap');

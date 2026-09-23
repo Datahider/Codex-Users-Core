@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace CodexRuntime;
 
+use Closure;
 use CodexRuntime\Attachment\InboundAttachmentLocalizer;
 use CodexRuntime\Attachment\VoiceAttachmentProcessor;
 use CodexRuntime\Contracts\StatusMessageServiceInterface;
@@ -27,7 +28,8 @@ final class ManagerWorker
         private VoiceAttachmentProcessor $voice_attachments,
         private InboundAttachmentLocalizer $attachment_localizer,
         private LimitMonitor $limit_monitor,
-        private FinalResponseDeliveryInterface $final_delivery
+        private FinalResponseDeliveryInterface $final_delivery,
+        private ?Closure $start_standby = null
     ) {
     }
 
@@ -47,12 +49,9 @@ final class ManagerWorker
             'slot' => $slot->number(),
             'max_workers' => $slot->capacity(),
         ]);
-        $this->writePidFile();
-
         try {
             $this->runWithSlot();
         } finally {
-            $this->removeOwnPidFile();
             $this->logger->info('Manager worker slot released', [
                 'pid' => getmypid(),
                 'slot' => $slot->number(),
@@ -88,6 +87,7 @@ final class ManagerWorker
 
                 $runningPath = $this->events->moveToRunning($nextPath);
                 $event = $this->events->loadEvent($runningPath);
+                $this->startStandbyWorker();
                 $eventId = (string) ($event['id'] ?? basename($runningPath, '.json'));
                 $this->markActive($event);
                 $this->logger->info('Manager worker handling event', [
@@ -565,28 +565,12 @@ TEXT;
         return $current !== $next;
     }
 
-    private function writePidFile(): void
+    private function startStandbyWorker(): void
     {
-        $paths = new RuntimePaths($this->config);
-        $pidFile = (string) $this->config->get('background', 'manager_worker_pid_file', $paths->workerPidFile('manager_worker'));
-        $dir = dirname($pidFile);
-        if (!is_dir($dir)) {
-            mkdir($dir, 0775, true);
-        }
-        file_put_contents($pidFile, (string) getmypid());
-    }
-
-    private function removeOwnPidFile(): void
-    {
-        $paths = new RuntimePaths($this->config);
-        $pidFile = (string) $this->config->get('background', 'manager_worker_pid_file', $paths->workerPidFile('manager_worker'));
-        if (!is_file($pidFile)) {
+        if ($this->start_standby === null) {
             return;
         }
 
-        $storedPid = trim((string) file_get_contents($pidFile));
-        if ($storedPid === (string) getmypid()) {
-            unlink($pidFile);
-        }
+        ($this->start_standby)();
     }
 }

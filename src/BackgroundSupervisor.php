@@ -30,12 +30,9 @@ final class BackgroundSupervisor
             (string) $this->config->get('router', 'lock_file', $paths->workerLockFile('router_ingress_worker'))
         );
 
-        $this->ensureWorker(
-            'manager_worker',
-            (string) $this->config->get('background', 'manager_worker_pid_file', $paths->workerPidFile('manager_worker')),
-            $this->workerBootstrapCode('manager_worker'),
-            (string) $this->config->get('manager_queue', 'lock_file', $paths->workerLockFile('manager_worker'))
-        );
+        if (!$this->hasActiveManagerWorker()) {
+            $this->startManagerWorker();
+        }
 
         $this->ensureWorker(
             'exec_watcher',
@@ -67,12 +64,28 @@ final class BackgroundSupervisor
 
     }
 
+    public function startManagerWorker(): void
+    {
+        $paths = new RuntimePaths($this->config);
+        $this->startWorkerProcess(
+            'manager_worker',
+            $paths->workerPidFile('manager_worker'),
+            $this->workerBootstrapCode('manager_worker'),
+            false
+        );
+    }
+
     private function ensureWorker(string $name, string $pidFile, string $bootstrapCode, ?string $lockFile = null): void
     {
         if ($this->isPidAlive($pidFile) || ($lockFile !== null && $this->isLockHeld($lockFile))) {
             return;
         }
 
+        $this->startWorkerProcess($name, $pidFile, $bootstrapCode, true);
+    }
+
+    private function startWorkerProcess(string $name, string $pidFile, string $bootstrapCode, bool $write_pid_file): void
+    {
         $configPath = realpath($this->configPath);
         $projectRoot = realpath(__DIR__ . '/..');
         $bootstrapPath = realpath(__DIR__ . '/bootstrap.php');
@@ -98,11 +111,44 @@ final class BackgroundSupervisor
             $logFile
         );
         $pid = $process->getPid();
-        file_put_contents($pidFile, (string) $pid);
+        if ($write_pid_file) {
+            file_put_contents($pidFile, (string) $pid);
+        }
         $this->logger->info('Started background worker', [
             'worker' => $name,
             'pid' => $pid,
         ]);
+    }
+
+    private function hasActiveManagerWorker(): bool
+    {
+        $paths = new RuntimePaths($this->config);
+        $max_workers = (int) $this->config->require('manager_queue', 'max_workers');
+        if ($max_workers < 1) {
+            throw new RuntimeException('manager_queue.max_workers must be greater than zero');
+        }
+
+        if (!is_dir($paths->runDir()) && !mkdir($paths->runDir(), 0775, true) && !is_dir($paths->runDir())) {
+            throw new RuntimeException("Cannot create directory {$paths->runDir()}");
+        }
+
+        for ($slot_number = 1; $slot_number <= $max_workers; $slot_number++) {
+            $path = $paths->managerWorkerSlotFile($slot_number);
+            $handle = fopen($path, 'c+e');
+            if ($handle === false) {
+                throw new RuntimeException("Cannot open {$path}");
+            }
+
+            if (!flock($handle, LOCK_EX | LOCK_NB)) {
+                fclose($handle);
+                return true;
+            }
+
+            flock($handle, LOCK_UN);
+            fclose($handle);
+        }
+
+        return false;
     }
 
     private function workerBootstrapCode(string $worker): string
@@ -113,6 +159,7 @@ final class BackgroundSupervisor
 chdir(%s);
 require %s;
 use CodexRuntime\ActiveTurnRegistry;
+use CodexRuntime\BackgroundSupervisor;
 use CodexRuntime\Attachment\CurlFileDownloadHttpClient;
 use CodexRuntime\Attachment\FilesIoannidisAttachmentDownloader;
 use CodexRuntime\Attachment\VoiceAttachmentProcessor;
@@ -195,7 +242,10 @@ $finalDelivery = new VoiceFinalDeliveryService(
     $voiceSender,
     $limitMonitor
 );
-$worker = new ManagerWorker($config, $logger, $events, $stateStore, $statusMessages, $shutdown, $transport, $codex, $voiceAttachments, $attachmentLocalizer, $limitMonitor, $finalDelivery);
+$startStandby = static function () use ($config, $logger, $configPath): void {
+    (new BackgroundSupervisor($config, $logger, $configPath))->startManagerWorker();
+};
+$worker = new ManagerWorker($config, $logger, $events, $stateStore, $statusMessages, $shutdown, $transport, $codex, $voiceAttachments, $attachmentLocalizer, $limitMonitor, $finalDelivery, $startStandby);
 $worker->run();
 PHP,
             'router_ingress_worker' => <<<'PHP'
