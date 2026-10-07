@@ -248,7 +248,7 @@ Core читает ChatGPT-лимиты через JSON-RPC метод `account/r
 ],
 ```
 
-### MCP tools исходящих файлов
+### Локальные MCP tools
 
 Core подключает к каждому `codex exec` локальный STDIO MCP-сервер `bin/mcp-server.php`.
 Сервер публикует tools:
@@ -256,8 +256,16 @@ Core подключает к каждому `codex exec` локальный STDI
 ```text
 send_document(path: string, caption?: string)
 send_image(path: string, caption?: string)
+set_response_delivery(mode: "text"|"voice", scope: "once"|"persistent")
 ```
 
+- пользователь не имеет доступа к локальной файловой системе компьютера агента;
+- локальный путь или Markdown-ссылка на локальный файл не передаёт файл пользователю и не может заменять вызов tool;
+- `send_document` обязателен для передачи пользователю любого локального файла, кроме изображений JPEG, PNG и WEBP;
+- `send_image` обязателен для передачи пользователю локальных JPEG, PNG и WEBP;
+- `set_response_delivery` переключает текстовый и голосовой режим ответа: `scope=once` действует только для текущего финального ответа, `scope=persistent` — для текущего и последующих ответов;
+- server-level `instructions` описывает только общие условия локальной файловой системы и не упоминает отдельные tools;
+- описание каждого tool описывает только его собственное назначение.
 - `path` — абсолютный путь к читаемому regular file.
 - `caption` — необязательная подпись.
 - runtime-session берётся только из `RUNTIME_SID`; tool не принимает адресата.

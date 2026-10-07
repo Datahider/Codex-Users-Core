@@ -59,14 +59,14 @@ final class StdioServer
                 'protocolVersion' => '2025-06-18',
                 'capabilities' => ['tools' => (object) []],
                 'serverInfo' => ['name' => 'codex-runtime-core', 'version' => '1.0.0'],
-                'instructions' => 'Use send_document when the user asks you to deliver a local file into the current chat.',
+                'instructions' => 'The user cannot access the agent computer local filesystem. A local path or Markdown link to a local file does not deliver that file to the user.',
             ];
         }
 
         if ($method === 'tools/list') {
             return ['tools' => [[
                 'name' => 'send_document',
-                'description' => 'Send a local file as a document to the current runtime chat.',
+                'description' => 'Required when delivering any local file to the user except a JPEG, PNG or WEBP image. Do not replace delivery with a local path or Markdown link.',
                 'inputSchema' => [
                     'type' => 'object',
                     'properties' => [
@@ -78,7 +78,7 @@ final class StdioServer
                 ],
             ], [
                 'name' => 'send_image',
-                'description' => 'Send a local JPEG, PNG or WEBP image to the current runtime chat.',
+                'description' => 'Required when delivering a local JPEG, PNG or WEBP image to the user. Do not replace delivery with a local path or Markdown link.',
                 'inputSchema' => [
                     'type' => 'object',
                     'properties' => [
@@ -90,7 +90,7 @@ final class StdioServer
                 ],
             ], [
                 'name' => 'set_response_delivery',
-                'description' => 'Call when the user asks for text or voice replies. Use scope=once for only the current final response and scope=persistent for this and following responses.',
+                'description' => 'Switch final response delivery between text and voice. scope=once applies only to the current final response; scope=persistent applies to the current and following responses.',
                 'inputSchema' => [
                     'type' => 'object',
                     'properties' => [

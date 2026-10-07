@@ -57,8 +57,29 @@ rewind($output);
 $responses = array_map(static fn (string $line): array => json_decode($line, true), array_values(array_filter(array_map('trim', explode("\n", stream_get_contents($output))))));
 
 assertSame('2025-06-18', $responses[0]['result']['protocolVersion'] ?? null, 'protocol version');
+assertSame(
+    'The user cannot access the agent computer local filesystem. A local path or Markdown link to a local file does not deliver that file to the user.',
+    $responses[0]['result']['instructions'] ?? null,
+    'server instructions'
+);
 assertSame('send_document', $responses[1]['result']['tools'][0]['name'] ?? null, 'tool name');
 assertSame('send_image', $responses[1]['result']['tools'][1]['name'] ?? null, 'image tool name');
+assertSame('set_response_delivery', $responses[1]['result']['tools'][2]['name'] ?? null, 'response delivery tool name');
+assertSame(
+    'Required when delivering any local file to the user except a JPEG, PNG or WEBP image. Do not replace delivery with a local path or Markdown link.',
+    $responses[1]['result']['tools'][0]['description'] ?? null,
+    'document-only description'
+);
+assertSame(
+    'Required when delivering a local JPEG, PNG or WEBP image to the user. Do not replace delivery with a local path or Markdown link.',
+    $responses[1]['result']['tools'][1]['description'] ?? null,
+    'image-only description'
+);
+assertSame(
+    'Switch final response delivery between text and voice. scope=once applies only to the current final response; scope=persistent applies to the current and following responses.',
+    $responses[1]['result']['tools'][2]['description'] ?? null,
+    'response-delivery-only description'
+);
 assertSame('object', $responses[1]['result']['tools'][0]['inputSchema']['type'] ?? null, 'tool schema');
 assertSame([['/tmp/report.pdf', 'Report'], ['/tmp/pixel.png', 'Pixel']], $tool->calls, 'tool calls');
 assertSame(false, $responses[2]['result']['isError'] ?? null, 'tool result');
