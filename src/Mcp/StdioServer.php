@@ -12,7 +12,8 @@ final class StdioServer
     public function __construct(
         private DocumentToolInterface $document_tool,
         private ImageToolInterface $image_tool,
-        private ResponseDeliveryToolInterface $response_delivery_tool
+        private ResponseDeliveryToolInterface $response_delivery_tool,
+        private ?TransportToolService $transport_tools = null
     )
     {
     }
@@ -20,6 +21,7 @@ final class StdioServer
     /** @param resource $input @param resource $output */
     public function run($input, $output): void
     {
+        $this->transport_tools?->warmup();
         while (($line = fgets($input)) !== false) {
             $request = json_decode(trim($line), true);
             if (!is_array($request)) {
@@ -64,7 +66,7 @@ final class StdioServer
         }
 
         if ($method === 'tools/list') {
-            return ['tools' => [[
+            $local_tools = [[
                 'name' => 'send_document',
                 'description' => 'Required when delivering any local file to the user except a JPEG, PNG or WEBP image. Do not replace delivery with a local path or Markdown link.',
                 'inputSchema' => [
@@ -100,13 +102,17 @@ final class StdioServer
                     'required' => ['mode', 'scope'],
                     'additionalProperties' => false,
                 ],
-            ]]];
+            ]];
+            return ['tools' => array_merge($local_tools, $this->transport_tools?->warmup() ?? [])];
         }
 
         if ($method === 'tools/call') {
             $params = is_array($request['params'] ?? null) ? $request['params'] : [];
             $name = (string) ($params['name'] ?? '');
             if (!in_array($name, ['send_document', 'send_image', 'set_response_delivery'], true)) {
+                if ($this->transport_tools !== null) {
+                    return $this->transport_tools->call($name, is_array($params['arguments'] ?? null) ? $params['arguments'] : []);
+                }
                 throw new RuntimeException('Unknown MCP tool');
             }
             $arguments = is_array($params['arguments'] ?? null) ? $params['arguments'] : [];

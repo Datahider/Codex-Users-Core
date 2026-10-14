@@ -9,6 +9,7 @@ use CodexRuntime\ControlIngress;
 use CodexRuntime\JsonFileStore;
 use CodexRuntime\Logger;
 use CodexRuntime\ManagerQueue\EventRepository;
+use CodexRuntime\Mcp\TransportToolStore;
 use CodexRuntime\WorkerShutdownFlag;
 use RuntimeException;
 
@@ -23,7 +24,8 @@ final class RouterIngressWorker
         private EventRepository $events,
         private ControlIngress $controls,
         private JsonFileStore $stateStore,
-        private WorkerShutdownFlag $shutdown
+        private WorkerShutdownFlag $shutdown,
+        private ?TransportToolStore $transport_tools = null
     ) {
     }
 
@@ -72,6 +74,19 @@ final class RouterIngressWorker
         $runtimeSessionId = trim((string) ($event['session_id'] ?? ''));
         if ($runtimeSessionId === '') {
             throw new RuntimeException('Router event is missing runtime session id');
+        }
+
+        $routerKind = (string) ($event['meta']['router_kind'] ?? '');
+        if ($routerKind === 'tool') {
+            $meta = is_array($event['meta']['router_meta'] ?? null) ? $event['meta']['router_meta'] : [];
+            if ($this->transport_tools === null) {
+                $this->logger->error('Discarded transport tool response without IPC store', ['runtime_session_id' => $runtimeSessionId]);
+            } else {
+                $this->transport_tools->acceptResponse($runtimeSessionId, $meta);
+            }
+            $state['router_after_id'] = $routerEventId;
+            $this->stateStore->write($state);
+            return true;
         }
 
         $attachments = is_array($event['meta']['attachments'] ?? null) ? $event['meta']['attachments'] : [];

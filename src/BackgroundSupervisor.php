@@ -274,6 +274,7 @@ use CodexRuntime\ControlQueue\CommandRepository;
 use CodexRuntime\JsonFileStore;
 use CodexRuntime\Logger;
 use CodexRuntime\ManagerQueue\EventRepository;
+use CodexRuntime\Mcp\TransportToolStore;
 use CodexRuntime\Router\ApiClient;
 use CodexRuntime\Router\CoreEventSource;
 use CodexRuntime\Router\CurlHttpClient;
@@ -292,7 +293,8 @@ $events = new EventRepository($config);
 $controls = new ControlIngress(new CommandRepository($config));
 $stateStore = new JsonFileStore((string) $config->get('router', 'state_file', $paths->routerStateFile()));
 $shutdown = new WorkerShutdownFlag($config, 'background', 'router_ingress_worker_shutdown_flag_file', $paths->workerShutdownFlagFile('router_ingress_worker'));
-$worker = new RouterIngressWorker($config, $logger, $source, $events, $controls, $stateStore, $shutdown);
+$toolStore = new TransportToolStore($paths->transportToolsDir(), $logger);
+$worker = new RouterIngressWorker($config, $logger, $source, $events, $controls, $stateStore, $shutdown, $toolStore);
 $worker->run();
 PHP,
             'command_watcher' => <<<'PHP'

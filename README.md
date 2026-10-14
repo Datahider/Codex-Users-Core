@@ -276,6 +276,52 @@ set_response_delivery(mode: "text"|"voice", scope: "once"|"persistent")
 - `send_image` принимает только JPEG, PNG и WEBP размером не больше 10 МБ.
 - после загрузки `send_image` отправляет в Router `kind=image` с тем же форматом attachment.
 
+### MCP tools транспорта
+
+Перед чтением MCP-запросов STDIO-сервер прогревает список tools транспорта
+для текущего `RUNTIME_SID`. Ключ кэша — точное значение `RUNTIME_SID`: Router
+гарантирует отдельный runtime session для каждого binding/opaque. Кэш общий для
+последовательных MCP-процессов. TTL задаётся `transport_tools.cache_ttl_seconds`,
+по умолчанию 600 секунд. Пустой корректный список также кэшируется.
+
+При cache miss один MCP-процесс захватывает session lock, повторно проверяет кэш,
+заранее регистрирует ожидание и отправляет через Router:
+
+```json
+{"runtime_session_id":"...","kind":"tool","text":"","attachments":[],"meta":{"type":"list","request_id":"..."}}
+```
+
+Остальные MCP-процессы этой session не создают дублирующий `list`, а ждут
+освобождения lock и читают заполненный кэш. Таймаут ответа на `list` задаётся
+`transport_tools.list_timeout_seconds`, по умолчанию 5 секунд. Таймаут, невалидный
+ответ или коллизия с локальным tool журналируются, не кэшируются и дают
+только локальные tools.
+
+`meta.tools` — массив MCP `Tool`. Каждый tool обязан иметь непустые строковые
+`name`, строковый `description` и object `inputSchema`; остальные MCP-поля сохраняются
+непрозрачно и без переименования. `tools/list` возвращает сначала локальные, затем
+транспортные tools. Любая коллизия имени отклоняет весь транспортный список.
+
+Вызов известного транспортного tool отправляет:
+
+```json
+{"runtime_session_id":"...","kind":"tool","text":"","attachments":[],"meta":{"type":"call","request_id":"...","name":"tool_name","arguments":{}}}
+```
+
+Таймаут ответа задаётся `transport_tools.call_timeout_seconds`, по умолчанию 50 секунд.
+`meta.result` — полный MCP `CallToolResult` без обёртки. `meta.error` со строковыми
+`code`, `message` и необязательным `data` возвращается как `CallToolResult`: `isError=true`,
+а полный JSON объекта error помещается в текстовый `content`. Неизвестное имя
+отклоняется локально и не отправляется Router.
+
+Входящий `kind=tool` никогда не становится manager event и не запускает turn. Core
+сопоставляет ответ по `runtime_session_id + request_id`. Неизвестные, чужие, поздние,
+дублированные и некорректные ответы журналируются, отбрасываются и не блокируют
+ingress cursor. Протухшие ожидания удаляются.
+
+Core не задаёт Codex `startup_timeout_sec` и `tool_timeout_sec`. Codex запускает MCP-сервер
+без `enabled_tools`, с `default_tools_approval_mode="approve"` и без per-tool approval settings.
+
 Для `ManagerWorker` это значит следующее:
 
 - `user_message`, `scheduled_prompt` и `background_result` во время `codex->run(...)` стримят промежуточные чанки как outbound `commentary`

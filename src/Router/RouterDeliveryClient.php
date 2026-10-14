@@ -6,10 +6,11 @@ namespace CodexRuntime\Router;
 
 use CodexRuntime\Logger;
 use CodexRuntime\Contracts\TransportClientInterface;
+use CodexRuntime\Mcp\ToolEventSenderInterface;
 use CodexRuntime\Contracts\DeliveryClientInterface;
 use RuntimeException;
 
-final class RouterDeliveryClient implements DeliveryClientInterface, TransportClientInterface
+final class RouterDeliveryClient implements DeliveryClientInterface, TransportClientInterface, ToolEventSenderInterface
 {
     public function __construct(
         private ApiClient $api,
@@ -98,6 +99,15 @@ final class RouterDeliveryClient implements DeliveryClientInterface, TransportCl
             (string) $chatId,
             'heartbeat',
             fn (): array => $this->sendOutbound((string) $chatId, 'heartbeat', '', [])
+        );
+    }
+
+    public function sendToolEvent(string $runtime_session_id, array $meta): void
+    {
+        $this->retryUntilDelivered(
+            $runtime_session_id,
+            'tool',
+            fn (): array => $this->sendOutbound($runtime_session_id, 'tool', '', $meta)
         );
     }
 

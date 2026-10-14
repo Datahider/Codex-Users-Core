@@ -31,6 +31,7 @@ try {
 
     assertContains('RouterIngressWorker', $routerIngress, 'router ingress worker bootstrap');
     assertContains('CoreEventSource', $routerIngress, 'core event source bootstrap');
+    assertContains('TransportToolStore', $routerIngress, 'transport tool IPC bootstrap');
     assertContains('RouterTransportClient', $manager, 'manager router transport bootstrap');
     assertContains('RouterStatusMessageService', $manager, 'manager router status bootstrap');
     assertContains('startManagerWorker', $manager, 'manager standby starter bootstrap');

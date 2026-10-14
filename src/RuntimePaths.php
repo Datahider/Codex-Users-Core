@@ -95,6 +95,11 @@ final class RuntimePaths
         return $this->root . '/attachments';
     }
 
+    public function transportToolsDir(): string
+    {
+        return $this->root . '/transport-tools';
+    }
+
     public function mainLockFile(): string
     {
         return $this->runDir() . '/core-main.lock';

@@ -28,6 +28,11 @@ return [
         'base_url' => 'https://files.ioannidis.ru',
         'token' => '',
     ],
+    'transport_tools' => [
+        'cache_ttl_seconds' => 600,
+        'list_timeout_seconds' => 5,
+        'call_timeout_seconds' => 50,
+    ],
     'transcription' => [
         'api_key' => '',
         'model' => 'gpt-transcribe',

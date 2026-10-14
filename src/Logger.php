@@ -6,7 +6,7 @@ namespace CodexRuntime;
 
 final class Logger
 {
-    public function __construct(private string $path)
+    public function __construct(private string $path, private bool $write_stdout = true)
     {
     }
 
@@ -53,7 +53,7 @@ final class Logger
 
         file_put_contents($this->path, $line . PHP_EOL, FILE_APPEND | LOCK_EX);
 
-        if (defined('STDOUT')) {
+        if ($this->write_stdout && defined('STDOUT')) {
             fwrite(STDOUT, $line . PHP_EOL);
         }
     }

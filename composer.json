@@ -26,6 +26,8 @@
             "php smoke/document-outbound.php",
             "php smoke/image-outbound.php",
             "php smoke/mcp-document-server.php",
+            "php smoke/transport-mcp-tools.php",
+            "php smoke/router-ingress-tool-response.php",
             "php smoke/voice-final-planning.php",
             "php smoke/voice-selection.php",
             "php smoke/voice-output.php",
