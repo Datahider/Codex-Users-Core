@@ -18,7 +18,7 @@
 - обработку `manager-queue`
 - запуск `codex`
 - связь `runtime_session_id -> codex_session_id`
-- команды управления вроде `/stop`, `/reset`, `/session`
+- команды управления вроде `/stop`, `/reset`, `/session`, `/model`
 - выпуск отложенных задач в `manager-queue`
 - исходящие семантические payload'ы для границы с транспортом
 
@@ -239,9 +239,34 @@ Core читает ChatGPT-лимиты через JSON-RPC метод `account/r
   процесса или некорректная структура ответа считаются ошибкой операции и не
   маскируются;
 
+## Выбор модели
+
+`codex.model` в конфиге Core задаёт модель по умолчанию. Core передаёт
+эффективную модель в каждый вызов `codex exec` через `--model`.
+
+- `/model` без аргумента показывает эффективную модель текущей
+  runtime-сессии и список моделей из `codex debug models --bundled`;
+- каждая модель в списке выводится как копируемая inline-code команда
+  `` `/model <slug>` ``;
+- строка для `codex.model` дополнительно помечается текстом ` (default)` за
+  закрывающим обратным апострофом;
+- `/model <slug>` проверяет `slug` по текущему списку Codex и сохраняет
+  override только для текущего `runtime_session_id`;
+- override применяется со следующего turn, в том числе при `codex exec resume`;
+- если override нет, используется `codex.model`;
+- Core не изменяет `config.toml` Codex;
+- ошибка запуска `codex debug models --bundled`, некорректный JSON или
+  пустой список моделей считаются ошибкой операции.
+
+Состояние override хранится отдельно от mapping `runtime_session_id -> codex_session_id`
+в `session_models[runtime_session_id]`. `/reset` не удаляет model override.
+
 Минимальная конфигурация:
 
 ```php
+'codex' => [
+    'model' => 'gpt-5.6-sol',
+],
 'limits' => [
     // 'primary_remaining_warning_percent' => 5,
     // 'secondary_remaining_warning_percent' => 1,
