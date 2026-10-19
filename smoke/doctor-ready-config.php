@@ -21,6 +21,7 @@ try {
 return [
     'codex' => [
         'bin' => 'codex',
+        'model' => 'gpt-5.6-sol',
         'cwd' => '__CWD__',
     ],
     'router' => [

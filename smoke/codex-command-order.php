@@ -17,6 +17,7 @@ try {
     $config = new Config([
         'codex' => [
             'bin' => 'codex',
+            'model' => 'gpt-5.6-sol',
             'extra_args' => ['-s', 'read-only', '--skip-git-repo-check', '--json'],
         ],
         'storage' => [
@@ -34,17 +35,24 @@ try {
 
     $command = $method->invoke($process, 'test prompt', 'session-123', $tmpRoot . '/last.txt');
     assertSame(
-        ['codex', 'exec', '-s', 'read-only', '--skip-git-repo-check', '--json', 'resume', 'session-123', '-o'],
-        array_slice($command, 0, 9),
+        ['codex', 'exec', '-s', 'read-only', '--skip-git-repo-check', '--json', '--model', 'gpt-5.6-sol', 'resume', 'session-123', '-o'],
+        array_slice($command, 0, 11),
         'resume command prefix'
     );
     assertSame('-', $command[count($command) - 1], 'resume command reads prompt from stdin');
 
     $commandWithoutSession = $method->invoke($process, 'test prompt', null, $tmpRoot . '/last.txt');
     assertSame(
-        ['codex', 'exec', '-s', 'read-only', '--skip-git-repo-check', '--json', '-o'],
-        array_slice($commandWithoutSession, 0, 7),
+        ['codex', 'exec', '-s', 'read-only', '--skip-git-repo-check', '--json', '--model', 'gpt-5.6-sol', '-o'],
+        array_slice($commandWithoutSession, 0, 9),
         'new session command prefix'
+    );
+
+    $overrideCommand = $method->invoke($process, 'test prompt', 'session-123', $tmpRoot . '/last.txt', 'gpt-6-astra');
+    assertSame(
+        ['codex', 'exec', '-s', 'read-only', '--skip-git-repo-check', '--json', '--model', 'gpt-6-astra', 'resume', 'session-123', '-o'],
+        array_slice($overrideCommand, 0, 11),
+        'session override model'
     );
     assertSame('-', $commandWithoutSession[count($commandWithoutSession) - 1], 'new session command reads prompt from stdin');
 

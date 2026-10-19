@@ -30,6 +30,11 @@ try {
     file_put_contents($fake_codex, <<<'PHP'
 #!/usr/bin/env php
 <?php
+$args = array_slice($argv, 1);
+if ($args === ['debug', 'models', '--bundled']) {
+    echo '{"models":[{"slug":"gpt-5.6-sol"},{"slug":"gpt-6-astra"}]}' . "\n";
+    exit(0);
+}
 $initialize = json_decode((string) fgets(STDIN), true, 512, JSON_THROW_ON_ERROR);
 if (($initialize['method'] ?? null) !== 'initialize') {
     exit(2);
@@ -49,6 +54,7 @@ PHP);
     $config = new Config([
         'codex' => [
             'bin' => $fake_codex,
+            'model' => 'gpt-5.6-sol',
             'cwd' => $tmp_root,
         ],
         'storage' => [
@@ -193,6 +199,40 @@ PHP);
     assertSame([['runtime-42', '/voice']], $voice_commands->calls, '/voice service call');
     assertSame('system', $transport->messages[0]['kind'] ?? null, '/voice command system');
     assertSame('Текущий голос: cedar.', $transport->messages[0]['text'] ?? null, '/voice response text');
+
+    $transport->messages = [];
+    $model_list = $process_command->invoke($watcher, [
+        'type' => 'transport_command',
+        'text' => '/model',
+        'channel_id' => 'runtime-42',
+        'session_id' => '72700000-0000-0000-0000-000000000042',
+    ]);
+    assertSame('show', $model_list['mode'] ?? null, '/model show mode');
+    assertSame(
+        "Текущая модель: gpt-5.6-sol.\n\n`/model gpt-5.6-sol` (default)\n`/model gpt-6-astra`",
+        $transport->messages[0]['text'] ?? null,
+        '/model list response'
+    );
+
+    $transport->messages = [];
+    $model_set = $process_command->invoke($watcher, [
+        'type' => 'transport_command',
+        'text' => '/model gpt-6-astra',
+        'channel_id' => 'runtime-42',
+        'session_id' => '72700000-0000-0000-0000-000000000042',
+    ]);
+    assertSame('set', $model_set['mode'] ?? null, '/model set mode');
+    assertSame('gpt-6-astra', $model_set['model'] ?? null, '/model selected override');
+    assertSame('Модель текущей сессии: gpt-6-astra.', $transport->messages[0]['text'] ?? null, '/model set response');
+
+    $transport->messages = [];
+    $process_command->invoke($watcher, [
+        'type' => 'transport_command',
+        'text' => '/model',
+        'channel_id' => 'runtime-42',
+        'session_id' => '72700000-0000-0000-0000-000000000042',
+    ]);
+    assertContains('Текущая модель: gpt-6-astra.', $transport->messages[0]['text'] ?? '', '/model effective override');
 
     fwrite(STDOUT, "Limits monitoring smoke: OK\n");
     unlink($fake_codex);
