@@ -188,6 +188,7 @@ final class ManagerWorker
             }
 
         $codexSessionId = $this->resolveCodexSessionId($this->readManagerState(), $runtimeSessionId);
+        $model = $this->modelPreferenceStore()->effectiveForRuntimeSession($runtimeSessionId);
         $outboundSessionId = $runtimeSessionId;
         $workingDir = $this->resolveWorkingDir(null);
         $prompt = $this->buildUserPrompt($runtimeSessionId, $text, $codexSessionId);
@@ -209,7 +210,7 @@ final class ManagerWorker
             if ($outboundSessionId !== 'none') {
                 $this->statusMessages->sendHeartbeat($outboundSessionId);
             }
-        }, $runtimeSessionId);
+        }, $runtimeSessionId, $model);
 
         $finalCodexSessionId = trim((string) ($result['session_id'] ?? '')) ?: $codexSessionId;
         $this->rememberSessionRoute($runtimeSessionId, $finalCodexSessionId);
@@ -244,6 +245,7 @@ final class ManagerWorker
         }
 
         $codexSessionId = $this->resolveCodexSessionId($this->readManagerState(), $runtimeSessionId);
+        $model = $this->modelPreferenceStore()->effectiveForRuntimeSession($runtimeSessionId);
 
         $this->statusMessages->sendHeartbeat($runtimeSessionId);
 
@@ -258,7 +260,8 @@ final class ManagerWorker
 
                 $this->statusMessages->sendHeartbeat($runtimeSessionId);
             },
-            $runtimeSessionId
+            $runtimeSessionId,
+            $model
         );
 
         $finalCodexSessionId = trim((string) ($result['session_id'] ?? '')) ?: $codexSessionId;
@@ -289,6 +292,7 @@ final class ManagerWorker
         }
 
         $codexSessionId = trim((string) ($event['codex_session_id'] ?? ''));
+        $model = $this->modelPreferenceStore()->effectiveForRuntimeSession($runtimeSessionId);
         $jobId = trim((string) ($event['job_id'] ?? ''));
         $prompt = $this->buildBackgroundResultPrompt($event);
         $this->statusMessages->sendHeartbeat($runtimeSessionId);
@@ -310,7 +314,8 @@ final class ManagerWorker
 
                 $this->statusMessages->sendHeartbeat($runtimeSessionId);
             },
-            $runtimeSessionId
+            $runtimeSessionId,
+            $model
         );
 
         $finalCodexSessionId = trim((string) ($result['session_id'] ?? '')) ?: $codexSessionId;
@@ -548,5 +553,10 @@ TEXT;
         }
 
         ($this->start_standby)();
+    }
+
+    private function modelPreferenceStore(): ModelPreferenceStore
+    {
+        return new ModelPreferenceStore($this->stateStore, $this->config);
     }
 }

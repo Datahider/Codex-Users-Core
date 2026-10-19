@@ -22,7 +22,8 @@ final class CodexProcess
         ?string $sessionId,
         ?string $workingDir,
         callable $onProgress,
-        ?string $runtimeSessionId = null
+        ?string $runtimeSessionId = null,
+        ?string $model = null
     ): array
     {
         $paths = new RuntimePaths($this->config);
@@ -40,7 +41,7 @@ final class CodexProcess
         $rawStdoutPath = $debugBase . '.stdout.jsonl';
         $rawStderrPath = $debugBase . '.stderr.log';
         $outputFile = $tmpDir . '/codex-last-message-' . uniqid('', true) . '.txt';
-        $command = $this->buildCommand($prompt, $sessionId, $outputFile);
+        $command = $this->buildCommand($prompt, $sessionId, $outputFile, $model);
         $descriptorSpec = [
             0 => ['pipe', 'r'],
             1 => ['pipe', 'w'],
@@ -228,7 +229,7 @@ final class CodexProcess
         }
     }
 
-    private function buildCommand(string $prompt, ?string $sessionId, string $outputFile): array
+    private function buildCommand(string $prompt, ?string $sessionId, string $outputFile, ?string $model = null): array
     {
         $command = [
             (string) $this->config->get('codex', 'bin', 'codex'),
@@ -238,6 +239,13 @@ final class CodexProcess
         foreach ((array) $this->config->get('codex', 'extra_args', []) as $arg) {
             $command[] = (string) $arg;
         }
+
+        $effective_model = trim((string) ($model ?? $this->config->require('codex', 'model')));
+        if ($effective_model === '') {
+            throw new RuntimeException('Effective Codex model is empty');
+        }
+        $command[] = '--model';
+        $command[] = $effective_model;
 
         if ($this->config_path !== null && trim($this->config_path) !== '') {
             $mcp_server = dirname(__DIR__) . '/bin/mcp-server.php';

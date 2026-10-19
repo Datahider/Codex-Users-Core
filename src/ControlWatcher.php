@@ -14,6 +14,8 @@ use CodexRuntime\Voice\VoiceCommandServiceInterface;
 final class ControlWatcher
 {
     private $lockHandle = null;
+    private ModelPreferenceStore $model_preferences;
+    private CodexModelCatalog $model_catalog;
 
     public function __construct(
         private Config $config,
@@ -26,8 +28,12 @@ final class ControlWatcher
         private CodexSessionCatalog $sessions,
         private WorkerShutdownFlag $shutdown,
         private LimitMonitor $limit_monitor,
-        private VoiceCommandServiceInterface $voice_commands
+        private VoiceCommandServiceInterface $voice_commands,
+        ?ModelPreferenceStore $model_preferences = null,
+        ?CodexModelCatalog $model_catalog = null
     ) {
+        $this->model_preferences = $model_preferences ?? new ModelPreferenceStore($stateStore, $config);
+        $this->model_catalog = $model_catalog ?? new CodexModelCatalog($config);
     }
 
     public function run(): void
@@ -166,6 +172,10 @@ final class ControlWatcher
             return $this->processSessionCommand($command, $channelId, $sessionId, $text);
         }
 
+        if (preg_match('/^\/model(?:@\S+)?(?:\s|$)/ui', $text)) {
+            return $this->processModelCommand($command, $channelId, $sessionId, $text);
+        }
+
         if (preg_match('/^\/limits(?:@\S+)?(?:\s|$)/ui', $text)) {
             $this->limit_monitor->sendCurrentLimits($sessionId);
 
@@ -263,6 +273,79 @@ final class ControlWatcher
             'pid' => $result['pid'],
             'active_turn' => $result['active_turn'],
         ];
+    }
+
+    /**
+     * @param array<string, mixed> $command
+     * @return array<string, mixed>
+     */
+    private function processModelCommand(array $command, int|string $channelId, string $runtimeSessionId, string $text): array
+    {
+        preg_match('/^\/model(?:@\S+)?(?:\s+(\S+))?$/ui', trim($text), $matches);
+        $model = trim((string) ($matches[1] ?? ''));
+        $available = $this->model_catalog->available();
+        $model_commands = $this->formatModelCommands($available);
+
+        if ($model === '') {
+            $effective_model = $this->model_preferences->effectiveForRuntimeSession($runtimeSessionId);
+            $this->transport->sendSystem(
+                $runtimeSessionId,
+                "Текущая модель: {$effective_model}.\n\n{$model_commands}"
+            );
+
+            return [
+                'ok' => true,
+                'stdout' => '',
+                'stderr' => '',
+                'command' => $command,
+                'channel_id' => $channelId,
+                'runtime_session_id' => $runtimeSessionId,
+                'mode' => 'show',
+                'model' => $effective_model,
+            ];
+        }
+
+        if (!in_array($model, $available, true)) {
+            $this->transport->sendSystem(
+                $runtimeSessionId,
+                "Недоступная модель: {$model}\n\n{$model_commands}"
+            );
+
+            return [
+                'ok' => true,
+                'stdout' => '',
+                'stderr' => 'Unsupported Codex model',
+                'command' => $command,
+                'channel_id' => $channelId,
+                'runtime_session_id' => $runtimeSessionId,
+                'mode' => 'rejected',
+            ];
+        }
+
+        $this->model_preferences->setSession($runtimeSessionId, $model);
+        $this->transport->sendSystem($runtimeSessionId, "Модель текущей сессии: {$model}.");
+
+        return [
+            'ok' => true,
+            'stdout' => '',
+            'stderr' => '',
+            'command' => $command,
+            'channel_id' => $channelId,
+            'runtime_session_id' => $runtimeSessionId,
+            'mode' => 'set',
+            'model' => $model,
+        ];
+    }
+
+    /** @param list<string> $models */
+    private function formatModelCommands(array $models): string
+    {
+        $default_model = $this->model_preferences->defaultModel();
+
+        return implode("\n", array_map(
+            static fn (string $model): string => '`/model ' . $model . '`' . ($model === $default_model ? ' (default)' : ''),
+            $models
+        ));
     }
 
     /**

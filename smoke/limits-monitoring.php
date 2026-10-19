@@ -235,8 +235,7 @@ PHP);
     assertContains('Текущая модель: gpt-6-astra.', $transport->messages[0]['text'] ?? '', '/model effective override');
 
     fwrite(STDOUT, "Limits monitoring smoke: OK\n");
-    unlink($fake_codex);
-    rmdir($tmp_root);
+    deleteTree($tmp_root);
     exit(0);
 } catch (Throwable $e) {
     fwrite(STDERR, "Limits monitoring smoke failed: {$e->getMessage()}\n");
@@ -262,4 +261,19 @@ function assertNotContains(string $needle, string $haystack, string $label): voi
     if (str_contains($haystack, $needle)) {
         throw new RuntimeException("Assertion failed for {$label}: unexpected {$needle}");
     }
+}
+
+function deleteTree(string $path): void
+{
+    if (!is_dir($path)) {
+        return;
+    }
+    foreach (scandir($path) ?: [] as $item) {
+        if ($item === '.' || $item === '..') {
+            continue;
+        }
+        $item_path = $path . '/' . $item;
+        is_dir($item_path) ? deleteTree($item_path) : unlink($item_path);
+    }
+    rmdir($path);
 }
