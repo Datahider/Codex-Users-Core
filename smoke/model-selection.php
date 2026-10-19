@@ -45,6 +45,13 @@ PHP);
     assertSame('gpt-6-astra', $preferences->effectiveForRuntimeSession($session_a), 'session override');
     assertSame('gpt-5.6-sol', $preferences->effectiveForRuntimeSession($session_b), 'other session keeps config default');
 
+    $fallback_preferences = new ModelPreferenceStore(
+        new JsonFileStore($tmp_root . '/fallback-manager-state.json'),
+        new Config(['codex' => ['bin' => $fake_codex, 'cwd' => $tmp_root]])
+    );
+    assertSame('gpt-5.6-sol', $fallback_preferences->defaultModel(), 'missing config model fallback');
+    assertSame('gpt-5.6-sol', $fallback_preferences->effectiveForRuntimeSession($session_a), 'fallback effective model');
+
     fwrite(STDOUT, "Model selection smoke: OK\n");
     exit(0);
 } catch (Throwable $e) {

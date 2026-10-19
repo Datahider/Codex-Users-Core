@@ -17,7 +17,6 @@ try {
     $config = new Config([
         'codex' => [
             'bin' => 'codex',
-            'model' => 'gpt-5.6-sol',
             'extra_args' => ['-s', 'read-only', '--skip-git-repo-check', '--json'],
         ],
         'storage' => [

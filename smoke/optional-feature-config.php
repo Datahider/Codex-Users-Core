@@ -15,7 +15,7 @@ try {
     mkdir($tmp_root, 0775, true);
     $config_path = $tmp_root . '/config.php';
     file_put_contents($config_path, '<?php return ' . var_export([
-        'codex' => ['cwd' => '/home/web', 'model' => 'gpt-5.6-sol'],
+        'codex' => ['cwd' => '/home/web'],
         'router' => [
             'base_url' => 'https://router.local',
             'core_token' => 'token',
