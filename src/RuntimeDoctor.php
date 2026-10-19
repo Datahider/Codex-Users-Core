@@ -52,10 +52,6 @@ final class RuntimeDoctor
             $issues[] = "codex.cwd does not exist: {$codexCwd}";
         }
 
-        if (trim((string) $config->get('codex', 'model', '')) === '') {
-            $issues[] = 'codex.model is empty';
-        }
-
         $storageRoot = trim((string) $config->get('storage', 'root', ''));
         if ($storageRoot === '') {
             $issues[] = 'storage.root is empty';

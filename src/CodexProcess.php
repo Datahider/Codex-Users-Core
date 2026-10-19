@@ -240,7 +240,8 @@ final class CodexProcess
             $command[] = (string) $arg;
         }
 
-        $effective_model = trim((string) ($model ?? $this->config->require('codex', 'model')));
+        $configured_model = trim((string) $this->config->get('codex', 'model', ''));
+        $effective_model = trim((string) ($model ?? ($configured_model !== '' ? $configured_model : ModelPreferenceStore::FALLBACK_MODEL)));
         if ($effective_model === '') {
             throw new RuntimeException('Effective Codex model is empty');
         }

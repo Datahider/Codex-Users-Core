@@ -8,18 +8,17 @@ use RuntimeException;
 
 final class ModelPreferenceStore
 {
+    public const FALLBACK_MODEL = 'gpt-5.6-sol';
+
     public function __construct(private JsonFileStore $store, private Config $config)
     {
     }
 
     public function defaultModel(): string
     {
-        $model = trim((string) $this->config->require('codex', 'model'));
-        if ($model === '') {
-            throw new RuntimeException('Default Codex model is empty');
-        }
+        $model = trim((string) $this->config->get('codex', 'model', ''));
 
-        return $model;
+        return $model !== '' ? $model : self::FALLBACK_MODEL;
     }
 
     public function effectiveForRuntimeSession(string $runtime_session_id): string
