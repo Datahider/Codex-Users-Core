@@ -161,7 +161,10 @@ Core запускает turn через один из провайдеров:
 - `session_id` берётся из события `{"type":"system","subtype":"init"}` и из
   события `{"type":"result"}`.
 - Каждый текстовый блок `{"type":"assistant"}` (`message.content[].type=text`),
-  после которого turn продолжился, уходит как `commentary`.
+  после которого turn продолжился, уходит как `commentary`. Turn считается
+  продолжившимся только при следующем событии `assistant` или `user`.
+  Прочие события (`rate_limit_event`, `system` и т.п.) текст не выталкивают
+  и не сбрасывают.
 - Финальный текст — поле `result` события `{"type":"result"}`.
 - `is_error=true` в событии `result`, ненулевой exit code или отсутствие
   события `result` — ошибка turn; возвращаемый exit code в этом случае

@@ -254,6 +254,10 @@ final class ClaudeProcess
             return '';
         }
 
+        if ($type !== 'assistant' && $type !== 'user') {
+            return '';
+        }
+
         $commentary = $pendingText ?? '';
         $pendingText = null;
 

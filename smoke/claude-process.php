@@ -58,6 +58,7 @@ $emit(['type' => 'assistant', 'message' => ['content' => [
 ]]]);
 $emit(['type' => 'user', 'message' => ['content' => [['type' => 'tool_result', 'tool_use_id' => 't1', 'content' => 'a.txt']]]]);
 $emit(['type' => 'assistant', 'message' => ['content' => [['type' => 'text', 'text' => 'Готово.']]]]);
+$emit(['type' => 'rate_limit_event', 'rate_limit_info' => ['status' => 'allowed']]);
 $emit(['type' => 'result', 'subtype' => 'success', 'is_error' => false, 'result' => 'Готово.', 'session_id' => 'claude-sess-1']);
 PHP));
     chmod($fake_claude, 0775);
