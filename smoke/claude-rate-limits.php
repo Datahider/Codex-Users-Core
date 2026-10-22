@@ -126,7 +126,7 @@ PHP);
             $this->reads++;
 
             return [
-                'primary' => ['usedPercent' => 0, 'resetsAt' => 1792683000],
+                'primary' => ['usedPercent' => 50, 'resetsAt' => 1792683000],
                 'secondary' => ['usedPercent' => 0, 'resetsAt' => 1792886400],
             ];
         }

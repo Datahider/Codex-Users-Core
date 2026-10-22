@@ -27,10 +27,16 @@ final class LimitMonitor
      */
     public function sendCurrentLimits(int|string $session_id): array
     {
-        $limits = $this->provider->read();
-        $message = $this->transport->sendSystem($session_id, $this->formatStatus($limits));
+        if ($this->isCodexSession((string) $session_id)) {
+            return $this->transport->sendSystem($session_id, $this->formatStatus($this->provider->read()));
+        }
 
-        return $message;
+        $limits = ClaudeRateLimitsStore::forConfig($this->config)->read();
+        if ($limits === null) {
+            return $this->transport->sendSystem($session_id, 'Лимиты claude пока неизвестны: они приходят вместе с ответом claude.');
+        }
+
+        return $this->transport->sendSystem($session_id, $this->formatClaudeStatus($limits));
     }
 
     /**
@@ -56,11 +62,15 @@ final class LimitMonitor
 
     public function checkAfterFinal(int|string $session_id): void
     {
-        if (!$this->isCodexSession((string) $session_id)) {
+        if ($this->isCodexSession((string) $session_id)) {
+            $this->sendWarningIfNeeded($session_id, $this->provider->read(), 'Codex');
             return;
         }
 
-        $this->sendWarningIfNeeded($session_id, $this->provider->read());
+        $limits = ClaudeRateLimitsStore::forConfig($this->config)->read();
+        if ($limits !== null) {
+            $this->sendWarningIfNeeded($session_id, $limits, 'Claude');
+        }
     }
 
     private function isCodexSession(string $session_id): bool
@@ -97,7 +107,27 @@ final class LimitMonitor
     /**
      * @param array<string, mixed> $limits
      */
-    private function sendWarningIfNeeded(int|string $session_id, array $limits): void
+    private function formatClaudeStatus(array $limits): string
+    {
+        $blocks = ['Лимиты Claude'];
+        $primary = $this->window($limits, 'primary');
+        $secondary = $this->window($limits, 'secondary');
+        if ($primary !== null) {
+            $blocks[] = $this->formatWindow('5 часов', $primary);
+        }
+        if ($secondary !== null) {
+            $blocks[] = $this->formatWindow('7 дней', $secondary);
+        }
+        $age = $this->clock->now() - (int) $limits['observed_at'];
+        $blocks[] = $age < 60 ? 'Получено менее минуты назад' : 'Получено ' . $this->formatDuration($age) . ' назад';
+
+        return implode("\n\n", $blocks);
+    }
+
+    /**
+     * @param array<string, mixed> $limits
+     */
+    private function sendWarningIfNeeded(int|string $session_id, array $limits, string $provider_label): void
     {
         $warnings = [];
         $primary = $this->window($limits, 'primary');
@@ -117,7 +147,7 @@ final class LimitMonitor
 
         $this->transport->sendWarning(
             $session_id,
-            "Внимание: заканчиваются лимиты Codex.\n\n" . implode("\n\n", $warnings)
+            "Внимание: заканчиваются лимиты {$provider_label}.\n\n" . implode("\n\n", $warnings)
         );
     }
 
@@ -146,7 +176,7 @@ final class LimitMonitor
             return null;
         }
         if (!is_array($window) || !is_numeric($window['usedPercent'] ?? null) || !is_int($window['resetsAt'] ?? null)) {
-            throw new RuntimeException("Invalid Codex rate-limit window: {$key}");
+            throw new RuntimeException("Invalid rate-limit window: {$key}");
         }
 
         return $window;
@@ -191,7 +221,12 @@ final class LimitMonitor
             return 'Сброс менее чем через минуту';
         }
 
-        $remaining_minutes = intdiv($remaining_seconds, 60);
+        return 'Сброс через ' . $this->formatDuration($remaining_seconds);
+    }
+
+    private function formatDuration(int $seconds): string
+    {
+        $remaining_minutes = intdiv($seconds, 60);
         $days = intdiv($remaining_minutes, 1440);
         $hours = intdiv($remaining_minutes % 1440, 60);
         $minutes = $remaining_minutes % 60;
@@ -206,6 +241,6 @@ final class LimitMonitor
             $parts[] = $minutes . ' мин';
         }
 
-        return 'Сброс через ' . implode(' ', $parts);
+        return implode(' ', $parts);
     }
 }

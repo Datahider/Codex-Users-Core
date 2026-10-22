@@ -185,9 +185,11 @@ final class ControlWatcher
         }
 
         if (preg_match('/^\/limits(?:@\S+)?(?:\s|$)/ui', $text)) {
-            $refused = $this->refuseWithoutCodex($command, $channelId, $sessionId, 'Лимиты для провайдера claude не поддерживаются.');
-            if ($refused !== null) {
-                return $refused;
+            if ($this->provider_preferences->effectiveForRuntimeSession($sessionId) === ProviderAvailability::CODEX) {
+                $refused = $this->refuseWithoutCodex($command, $channelId, $sessionId, '');
+                if ($refused !== null) {
+                    return $refused;
+                }
             }
             $this->limit_monitor->sendCurrentLimits($sessionId);
 

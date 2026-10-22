@@ -124,6 +124,10 @@ final class ClaudeProcess
                             $detectedSessionId = $event['session_id'];
                         }
 
+                        if (($event['type'] ?? null) === 'rate_limit_event') {
+                            $this->rememberRateLimits($event, $runtimeSessionId);
+                        }
+
                         $commentary = $this->consumeEvent($event, $pendingText, $resultEvent);
                         if ($commentary !== '') {
                             $streamedText = $streamedText === '' ? $commentary : ($streamedText . "\n\n" . $commentary);
@@ -277,6 +281,27 @@ final class ClaudeProcess
         }
 
         return $commentary;
+    }
+
+    /**
+     * Ошибка разбора rate_limit_event не должна ломать turn: событие журналируется и отбрасывается.
+     *
+     * @param array<string, mixed> $event
+     */
+    private function rememberRateLimits(array $event, ?string $runtimeSessionId): void
+    {
+        try {
+            $limits = ClaudeRateLimitsStore::parseEvent($event);
+        } catch (RuntimeException $e) {
+            $this->logger->warning('Discarded Claude rate_limit_event', [
+                'error' => $e->getMessage(),
+                'runtime_session_id' => $runtimeSessionId,
+            ]);
+
+            return;
+        }
+
+        ClaudeRateLimitsStore::forConfig($this->config)->save($limits, time());
     }
 
     private function safeClose(mixed $resource): void
