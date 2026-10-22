@@ -35,7 +35,13 @@
             "php smoke/voice-classifier.php",
             "php smoke/voice-attachment-processing.php",
             "php smoke/voice-attachment-user-error.php",
-            "php smoke/limits-monitoring.php"
+            "php smoke/limits-monitoring.php",
+            "php smoke/provider-availability.php",
+            "php smoke/provider-selection.php",
+            "php smoke/provider-command.php",
+            "php smoke/claude-process.php",
+            "php smoke/manager-worker-provider.php",
+            "php smoke/doctor-provider-default.php"
         ]
     },
     "autoload": {
