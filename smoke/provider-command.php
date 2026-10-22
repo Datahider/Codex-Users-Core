@@ -82,6 +82,25 @@ PHP);
     $run($session, '/provider@mybot claude');
     assertSame('Провайдер текущей сессии: claude.', lastSystem($transport), '/provider@bot form');
 
+    // Короткие формы /codex и /claude.
+    $alias_session = 'tg-1:alias';
+    $run($alias_session, '/model gpt-6-astra');
+    $result = $run($alias_session, '/claude');
+    assertSame('set', $result['mode'] ?? null, '/claude set mode');
+    assertSame('Провайдер текущей сессии: claude.', lastSystem($transport), '/claude text');
+    assertSame('claude', $state->read()['session_providers'][$alias_session] ?? null, '/claude stores provider');
+    assertSame(false, isset($state->read()['session_models'][$alias_session]), '/claude clears model');
+    $run($alias_session, '/codex@mybot');
+    assertSame('Провайдер текущей сессии: codex.', lastSystem($transport), '/codex@bot text');
+    assertSame('codex', $state->read()['session_providers'][$alias_session] ?? null, '/codex stores provider');
+    $state->update(static function (array $data) use ($alias_session): array {
+        $data['sessions'][$alias_session] = 'codex-alias';
+        return $data;
+    });
+    $result = $run($alias_session, '/claude');
+    assertSame(false, $result['ok'] ?? null, '/claude refused in started session');
+    assertSame('Сессия уже начата с провайдером codex. Сменить провайдер можно после /reset.', lastSystem($transport), '/claude started text');
+
     $result = $run($session, '/provider gemini');
     assertSame(false, $result['ok'] ?? null, 'unknown provider result');
     assertSame("Неизвестный провайдер: gemini\n\n{$provider_list}", lastSystem($transport), 'unknown provider text');
@@ -138,6 +157,8 @@ PHP);
     $result = $run($session, '/provider claude');
     assertSame(false, $result['ok'] ?? null, 'unavailable provider result');
     assertSame("Провайдер claude недоступен: {$missing_claude} не найден в PATH.", lastSystem($transport), 'unavailable provider text');
+    $run($session, '/claude');
+    assertSame("Провайдер claude недоступен: {$missing_claude} не найден в PATH.", lastSystem($transport), '/claude unavailable text');
 
     // codex не установлен, default — claude.
     $missing_codex = $tmp_root . '/missing-codex';

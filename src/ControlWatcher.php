@@ -180,6 +180,10 @@ final class ControlWatcher
             return $this->processProviderCommand($command, $channelId, $sessionId, $text);
         }
 
+        if (preg_match('/^\/(codex|claude)(?:@\S+)?$/ui', trim($text), $alias)) {
+            return $this->processProviderCommand($command, $channelId, $sessionId, '/provider ' . strtolower($alias[1]));
+        }
+
         if (preg_match('/^\/model(?:@\S+)?(?:\s|$)/ui', $text)) {
             return $this->processModelCommand($command, $channelId, $sessionId, $text);
         }
