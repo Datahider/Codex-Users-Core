@@ -28,7 +28,7 @@
 - PHP 8.1 или новее
 - PHP-расширение `curl`
 - `composer`
-- `codex` в `PATH`
+- `codex.bin` или `claude.bin` в `PATH` — как минимум для `provider.default` (см. [PROVIDERS.md](./PROVIDERS.md#доступность-провайдера))
 - `logger` в `PATH`
 - доступный экземпляр `Router`
 - валидный `Router` core token
