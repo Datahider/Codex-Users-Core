@@ -90,7 +90,7 @@ PHP);
     // /session и /limits для claude.
     $limits->reads = 0;
     $run($session, '/limits');
-    assertSame('Лимиты для провайдера claude не поддерживаются.', lastSystem($transport), '/limits for claude');
+    assertSame('Лимиты claude пока неизвестны: они приходят вместе с ответом claude.', lastSystem($transport), '/limits for claude');
     assertSame(0, $limits->reads, '/limits for claude does not read codex limits');
 
     $run($session, '/session');

@@ -41,7 +41,8 @@
             "php smoke/provider-command.php",
             "php smoke/claude-process.php",
             "php smoke/manager-worker-provider.php",
-            "php smoke/doctor-provider-default.php"
+            "php smoke/doctor-provider-default.php",
+            "php smoke/claude-rate-limits.php"
         ]
     },
     "autoload": {
