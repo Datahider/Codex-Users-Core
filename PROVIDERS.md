@@ -51,11 +51,9 @@ Core запускает turn через один из провайдеров:
   (первый turn или `/session <id>`), он записывает и
   `session_providers[runtime_session_id]` с эффективным провайдером. Обе записи
   выполняются в одной транзакции manager state.
-- Начатая сессия без `session_providers[runtime_session_id]` — нарушение
-  контракта: turn завершается ошибкой, провайдер по умолчанию не подставляется.
-- Существующий state переводится разовой миграцией
-  `php bin/migrate-session-providers.php [config]`: для каждого ключа
-  `sessions` без провайдера записывается `codex`. Миграция идемпотентна.
+- Начатая сессия без `session_providers[runtime_session_id]` (state, созданный
+  версией Core до появления провайдеров) считается сессией `codex` независимо
+  от `provider.default`. Core не переписывает такой state.
 
 `/reset` удаляет `sessions[runtime_session_id]`, но не трогает
 `session_providers` и `session_models`. После `/reset` сессия снова не начата,
