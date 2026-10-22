@@ -49,14 +49,27 @@ final class LimitMonitor
             $parse_mode,
             false
         );
-        $this->sendWarningIfNeeded($session_id, $this->provider->read());
+        $this->checkAfterFinal($session_id);
 
         return $message;
     }
 
     public function checkAfterFinal(int|string $session_id): void
     {
+        if (!$this->isCodexSession((string) $session_id)) {
+            return;
+        }
+
         $this->sendWarningIfNeeded($session_id, $this->provider->read());
+    }
+
+    private function isCodexSession(string $session_id): bool
+    {
+        $paths = new RuntimePaths($this->config);
+        $store = new JsonFileStore((string) $this->config->get('storage', 'manager_state_file', $paths->managerStateFile()));
+
+        return ProviderPreferenceStore::effectiveFromState($store->read(), $session_id, new ProviderAvailability($this->config))
+            === ProviderAvailability::CODEX;
     }
 
     /**

@@ -174,6 +174,7 @@ use CodexRuntime\Audio\GptAudioTranscriber;
 use CodexRuntime\Audio\UnavailableAudioTranscriber;
 use CodexRuntime\Config;
 use CodexRuntime\CodexProcess;
+use CodexRuntime\ClaudeProcess;
 use CodexRuntime\CodexAppServerRateLimitsProvider;
 use CodexRuntime\JsonFileStore;
 use CodexRuntime\Logger;
@@ -217,6 +218,7 @@ $statusMessages = new RouterStatusMessageService($config, $transport);
 $shutdown = new WorkerShutdownFlag($config, 'background', 'manager_worker_shutdown_flag_file', $paths->workerShutdownFlagFile('manager_worker'));
 $activeTurn = new ActiveTurnRegistry($paths->activeTurnFile());
 $codex = new CodexProcess($config, $logger, $activeTurn, $configPath);
+$claude = new ClaudeProcess($config, $logger, $activeTurn, $configPath);
 $features = new OptionalFeatureConfig($config);
 $attachmentDownloader = new FilesIoannidisAttachmentDownloader(new CurlFileDownloadHttpClient());
 $missingTranscription = $features->missingTranscriptionValues();
@@ -261,7 +263,7 @@ if ($missingVoice !== []) {
 $startStandby = static function () use ($config, $logger, $configPath): void {
     (new BackgroundSupervisor($config, $logger, $configPath))->startManagerWorker();
 };
-$worker = new ManagerWorker($config, $logger, $events, $stateStore, $statusMessages, $shutdown, $transport, $codex, $voiceAttachments, $attachmentLocalizer, $limitMonitor, $finalDelivery, $startStandby);
+$worker = new ManagerWorker($config, $logger, $events, $stateStore, $statusMessages, $shutdown, $transport, $codex, $voiceAttachments, $attachmentLocalizer, $limitMonitor, $finalDelivery, $startStandby, $claude);
 $worker->run();
 PHP,
             'router_ingress_worker' => <<<'PHP'

@@ -33,7 +33,8 @@ final class ManagerWorker
         private InboundAttachmentLocalizer $attachment_localizer,
         private LimitMonitor $limit_monitor,
         private FinalResponseDeliveryInterface $final_delivery,
-        private ?Closure $start_standby = null
+        private ?Closure $start_standby = null,
+        private ?ClaudeProcess $claude = null
     ) {
     }
 
@@ -188,15 +189,16 @@ final class ManagerWorker
             }
 
         $codexSessionId = $this->resolveCodexSessionId($this->readManagerState(), $runtimeSessionId);
+        $provider = $this->requireAvailableProvider($runtimeSessionId);
         $model = $this->modelPreferenceStore()->effectiveForRuntimeSession($runtimeSessionId);
         $outboundSessionId = $runtimeSessionId;
-        $workingDir = $this->resolveWorkingDir(null);
+        $workingDir = $this->resolveWorkingDir($provider);
         $prompt = $this->buildUserPrompt($runtimeSessionId, $text, $codexSessionId);
         if ($outboundSessionId !== 'none') {
             $this->statusMessages->sendHeartbeat($outboundSessionId);
         }
 
-        $result = $this->codex->run($prompt, $codexSessionId, $workingDir, function (string $partialText, string $latestChunk = '', bool $isProcessRunning = true) use ($outboundSessionId): void {
+        $result = $this->processFor($provider)->run($prompt, $codexSessionId, $workingDir, function (string $partialText, string $latestChunk = '', bool $isProcessRunning = true) use ($outboundSessionId): void {
             if ($outboundSessionId !== 'none' && $latestChunk !== '' && $isProcessRunning) {
                 $this->sendMessage(
                     $outboundSessionId,
@@ -213,11 +215,11 @@ final class ManagerWorker
         }, $runtimeSessionId, $model);
 
         $finalCodexSessionId = trim((string) ($result['session_id'] ?? '')) ?: $codexSessionId;
-        $this->rememberSessionRoute($runtimeSessionId, $finalCodexSessionId);
+        $this->rememberSessionRoute($runtimeSessionId, $finalCodexSessionId, $provider);
 
         $finalText = trim((string) ($result['text'] ?? ''));
         if ($finalText === '') {
-            $finalText = 'Пустой ответ от Codex.';
+            $finalText = $this->emptyAnswerText($provider);
         }
 
         $this->final_delivery->send($runtimeSessionId, $finalText);
@@ -245,14 +247,15 @@ final class ManagerWorker
         }
 
         $codexSessionId = $this->resolveCodexSessionId($this->readManagerState(), $runtimeSessionId);
+        $provider = $this->requireAvailableProvider($runtimeSessionId);
         $model = $this->modelPreferenceStore()->effectiveForRuntimeSession($runtimeSessionId);
 
         $this->statusMessages->sendHeartbeat($runtimeSessionId);
 
-        $result = $this->codex->run(
+        $result = $this->processFor($provider)->run(
             $this->buildScheduledPrompt($text, $event),
             $codexSessionId,
-            $this->resolveWorkingDir(null),
+            $this->resolveWorkingDir($provider),
             function (string $partialText, string $latestChunk = '', bool $isProcessRunning = true) use ($runtimeSessionId): void {
                 if ($latestChunk !== '' && $isProcessRunning) {
                     $this->sendMessage($runtimeSessionId, $latestChunk, null, null, true);
@@ -265,11 +268,11 @@ final class ManagerWorker
         );
 
         $finalCodexSessionId = trim((string) ($result['session_id'] ?? '')) ?: $codexSessionId;
-        $this->rememberSessionRoute($runtimeSessionId, $finalCodexSessionId);
+        $this->rememberSessionRoute($runtimeSessionId, $finalCodexSessionId, $provider);
 
         $finalText = trim((string) ($result['text'] ?? ''));
         if ($finalText === '') {
-            $finalText = 'Пустой ответ от Codex.';
+            $finalText = $this->emptyAnswerText($provider);
         }
 
         $this->final_delivery->send($runtimeSessionId, $finalText);
@@ -292,15 +295,16 @@ final class ManagerWorker
         }
 
         $codexSessionId = trim((string) ($event['codex_session_id'] ?? ''));
+        $provider = $this->requireAvailableProvider($runtimeSessionId);
         $model = $this->modelPreferenceStore()->effectiveForRuntimeSession($runtimeSessionId);
         $jobId = trim((string) ($event['job_id'] ?? ''));
         $prompt = $this->buildBackgroundResultPrompt($event);
         $this->statusMessages->sendHeartbeat($runtimeSessionId);
 
-        $result = $this->codex->run(
+        $result = $this->processFor($provider)->run(
             $prompt,
             $codexSessionId !== '' ? $codexSessionId : null,
-            $this->resolveWorkingDir(null),
+            $this->resolveWorkingDir($provider),
             function (string $partialText, string $latestChunk = '', bool $isProcessRunning = true) use ($runtimeSessionId): void {
                 if ($latestChunk !== '' && $isProcessRunning) {
                     $this->sendMessage(
@@ -319,7 +323,7 @@ final class ManagerWorker
         );
 
         $finalCodexSessionId = trim((string) ($result['session_id'] ?? '')) ?: $codexSessionId;
-        $this->rememberSessionRoute($runtimeSessionId, $finalCodexSessionId);
+        $this->rememberSessionRoute($runtimeSessionId, $finalCodexSessionId, $provider);
 
         $finalText = trim((string) ($result['text'] ?? ''));
         if ($finalText === '') {
@@ -465,9 +469,52 @@ TEXT;
         return $codexSessionId !== '' ? $codexSessionId : null;
     }
 
-    private function resolveWorkingDir(int|string|null $chatId): string
+    private function resolveWorkingDir(string $provider): string
     {
-        return trim((string) $this->config->get('codex', 'cwd', '/home/web'));
+        if ($provider === ProviderAvailability::CODEX) {
+            return trim((string) $this->config->get('codex', 'cwd', '/home/web'));
+        }
+
+        return (new ProviderAvailability($this->config))->cwd($provider);
+    }
+
+    /**
+     * Провайдер сессии обязан быть доступен: другой провайдер не подставляется.
+     */
+    private function requireAvailableProvider(string $runtimeSessionId): string
+    {
+        $availability = new ProviderAvailability($this->config);
+        $state = $this->stateStore->read();
+        $provider = ProviderPreferenceStore::effectiveFromState($state, $runtimeSessionId, $availability);
+        $message = $availability->unavailableMessage($provider);
+        if ($message === null) {
+            return $provider;
+        }
+
+        $hint = ProviderPreferenceStore::isStartedInState($state, $runtimeSessionId)
+            ? 'Отправьте /reset, чтобы начать новую сессию.'
+            : 'Выберите другой провайдер командой /provider.';
+        $this->transport->sendSystem($runtimeSessionId, $message . ' ' . $hint);
+
+        throw new RuntimeException($message);
+    }
+
+    private function processFor(string $provider): CodexProcess|ClaudeProcess
+    {
+        if ($provider === ProviderAvailability::CODEX) {
+            return $this->codex;
+        }
+
+        if ($this->claude === null) {
+            throw new RuntimeException('Claude process is not configured for manager worker');
+        }
+
+        return $this->claude;
+    }
+
+    private function emptyAnswerText(string $provider): string
+    {
+        return $provider === ProviderAvailability::CLAUDE ? 'Пустой ответ от Claude.' : 'Пустой ответ от Codex.';
     }
 
     private function sendMessage(
@@ -522,7 +569,7 @@ TEXT;
         ];
     }
 
-    private function rememberSessionRoute(string $runtimeSessionId, ?string $codexSessionId = null): bool
+    private function rememberSessionRoute(string $runtimeSessionId, ?string $codexSessionId, string $provider): bool
     {
         $runtimeSessionId = trim($runtimeSessionId);
         if ($runtimeSessionId === '' || $runtimeSessionId === 'none') {
@@ -535,8 +582,12 @@ TEXT;
         }
 
         $changed = false;
-        $this->stateStore->update(static function (array $state) use ($runtimeSessionId, $resolvedCodexSessionId, &$changed): array {
+        $this->stateStore->update(static function (array $state) use ($runtimeSessionId, $resolvedCodexSessionId, $provider, &$changed): array {
             $state['sessions'] ??= [];
+            if (!ProviderPreferenceStore::isStartedInState($state, $runtimeSessionId)) {
+                $state['session_providers'] ??= [];
+                $state['session_providers'][$runtimeSessionId] = $provider;
+            }
             $current = trim((string) ($state['sessions'][$runtimeSessionId] ?? ''));
             $changed = $current !== $resolvedCodexSessionId;
             $state['sessions'][$runtimeSessionId] = $resolvedCodexSessionId;

@@ -3,6 +3,10 @@
 $home = getenv('HOME') ?: __DIR__;
 
 return [
+    'provider' => [
+        // Провайдер новых runtime-сессий: codex или claude. Если не задан — codex.
+        'default' => 'codex',
+    ],
     'codex' => [
         'bin' => 'codex',
         // Если model не задана, используется gpt-5.6-sol.
@@ -15,6 +19,14 @@ return [
             '--json',
         ],
     ],
+    // Провайдер claude (Claude Code CLI). Нужен, только если claude используется.
+    // 'claude' => [
+    //     'bin' => 'claude',
+    //     'model' => 'opus',
+    //     'models' => ['opus', 'sonnet', 'haiku'],
+    //     'cwd' => $home,
+    //     'extra_args' => [],
+    // ],
     'limits' => [
         // 'primary_remaining_warning_percent' => 5,
         // 'secondary_remaining_warning_percent' => 1,

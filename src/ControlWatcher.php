@@ -16,6 +16,8 @@ final class ControlWatcher
     private $lockHandle = null;
     private ModelPreferenceStore $model_preferences;
     private CodexModelCatalog $model_catalog;
+    private ProviderAvailability $providers;
+    private ProviderPreferenceStore $provider_preferences;
 
     public function __construct(
         private Config $config,
@@ -34,6 +36,8 @@ final class ControlWatcher
     ) {
         $this->model_preferences = $model_preferences ?? new ModelPreferenceStore($stateStore, $config);
         $this->model_catalog = $model_catalog ?? new CodexModelCatalog($config);
+        $this->providers = new ProviderAvailability($config);
+        $this->provider_preferences = new ProviderPreferenceStore($stateStore, $config);
     }
 
     public function run(): void
@@ -172,11 +176,19 @@ final class ControlWatcher
             return $this->processSessionCommand($command, $channelId, $sessionId, $text);
         }
 
+        if (preg_match('/^\/provider(?:@\S+)?(?:\s|$)/ui', $text)) {
+            return $this->processProviderCommand($command, $channelId, $sessionId, $text);
+        }
+
         if (preg_match('/^\/model(?:@\S+)?(?:\s|$)/ui', $text)) {
             return $this->processModelCommand($command, $channelId, $sessionId, $text);
         }
 
         if (preg_match('/^\/limits(?:@\S+)?(?:\s|$)/ui', $text)) {
+            $refused = $this->refuseWithoutCodex($command, $channelId, $sessionId, 'Лимиты для провайдера claude не поддерживаются.');
+            if ($refused !== null) {
+                return $refused;
+            }
             $this->limit_monitor->sendCurrentLimits($sessionId);
 
             return [
@@ -283,8 +295,17 @@ final class ControlWatcher
     {
         preg_match('/^\/model(?:@\S+)?(?:\s+(\S+))?$/ui', trim($text), $matches);
         $model = trim((string) ($matches[1] ?? ''));
-        $available = $this->model_catalog->available();
-        $model_commands = $this->formatModelCommands($available);
+        $provider = $this->provider_preferences->effectiveForRuntimeSession($runtimeSessionId);
+        if ($provider === ProviderAvailability::CODEX) {
+            $refused = $this->refuseWithoutCodex($command, $channelId, $runtimeSessionId, '');
+            if ($refused !== null) {
+                return $refused;
+            }
+            $available = $this->model_catalog->available();
+        } else {
+            $available = $this->providers->claudeModels();
+        }
+        $model_commands = $this->formatModelCommands($available, $this->model_preferences->defaultModelForProvider($provider));
 
         if ($model === '') {
             $effective_model = $this->model_preferences->effectiveForRuntimeSession($runtimeSessionId);
@@ -338,10 +359,8 @@ final class ControlWatcher
     }
 
     /** @param list<string> $models */
-    private function formatModelCommands(array $models): string
+    private function formatModelCommands(array $models, string $default_model): string
     {
-        $default_model = $this->model_preferences->defaultModel();
-
         return implode("\n", array_map(
             static fn (string $model): string => '`/model ' . $model . '`' . ($model === $default_model ? ' (default)' : ''),
             $models
@@ -356,6 +375,10 @@ final class ControlWatcher
     {
         $sessionId = $this->extractSessionId($text);
         if ($sessionId === null) {
+            $refused = $this->refuseWithoutCodex($command, $channelId, $runtimeSessionId, 'Список сессий для провайдера claude не поддерживается.');
+            if ($refused !== null) {
+                return $refused;
+            }
             $this->sendAvailableSessions($runtimeSessionId);
 
             return [
@@ -369,8 +392,13 @@ final class ControlWatcher
             ];
         }
 
-        $this->stateStore->update(static function (array $state) use ($runtimeSessionId, $sessionId): array {
+        $providers = $this->providers;
+        $this->stateStore->update(static function (array $state) use ($runtimeSessionId, $sessionId, $providers): array {
             $state['sessions'] ??= [];
+            if (!ProviderPreferenceStore::isStartedInState($state, $runtimeSessionId)) {
+                $state['session_providers'] ??= [];
+                $state['session_providers'][$runtimeSessionId] = ProviderPreferenceStore::effectiveFromState($state, $runtimeSessionId, $providers);
+            }
             $state['sessions'][$runtimeSessionId] = $sessionId;
             return $state;
         });
@@ -390,6 +418,102 @@ final class ControlWatcher
             'mode' => 'set',
             'codex_session_id' => $sessionId,
         ];
+    }
+
+    /**
+     * @param array<string, mixed> $command
+     * @return array<string, mixed>
+     */
+    private function processProviderCommand(array $command, int|string $channelId, string $runtimeSessionId, string $text): array
+    {
+        preg_match('/^\/provider(?:@\S+)?(?:\s+(\S+))?$/ui', trim($text), $matches);
+        $provider = trim((string) ($matches[1] ?? ''));
+        $current = $this->provider_preferences->effectiveForRuntimeSession($runtimeSessionId);
+        $provider_commands = $this->formatProviderCommands();
+
+        if ($provider === '') {
+            $this->transport->sendSystem($runtimeSessionId, "Текущий провайдер: {$current}.\n\n{$provider_commands}");
+
+            return $this->commandResult($command, $channelId, $runtimeSessionId, true, ['mode' => 'show', 'provider' => $current]);
+        }
+
+        if (!$this->providers->isKnown($provider)) {
+            $this->transport->sendSystem($runtimeSessionId, "Неизвестный провайдер: {$provider}\n\n{$provider_commands}");
+
+            return $this->commandResult($command, $channelId, $runtimeSessionId, false, ['mode' => 'rejected', 'stderr' => 'Unknown provider']);
+        }
+
+        $unavailable = $this->providers->unavailableMessage($provider);
+        if ($unavailable !== null) {
+            $this->transport->sendSystem($runtimeSessionId, $unavailable);
+
+            return $this->commandResult($command, $channelId, $runtimeSessionId, false, ['mode' => 'unavailable', 'stderr' => $unavailable]);
+        }
+
+        if ($this->provider_preferences->isStarted($runtimeSessionId)) {
+            $this->transport->sendSystem(
+                $runtimeSessionId,
+                "Сессия уже начата с провайдером {$current}. Сменить провайдер можно после /reset."
+            );
+
+            return $this->commandResult($command, $channelId, $runtimeSessionId, false, ['mode' => 'started', 'stderr' => 'Runtime session is already started']);
+        }
+
+        $this->provider_preferences->setSession($runtimeSessionId, $provider);
+        if ($provider !== $current) {
+            $this->model_preferences->clearSession($runtimeSessionId);
+        }
+        $this->transport->sendSystem($runtimeSessionId, "Провайдер текущей сессии: {$provider}.");
+
+        return $this->commandResult($command, $channelId, $runtimeSessionId, true, ['mode' => 'set', 'provider' => $provider]);
+    }
+
+    private function formatProviderCommands(): string
+    {
+        $default_provider = $this->providers->defaultProvider();
+
+        return implode("\n", array_map(
+            static fn (string $provider): string => '`/provider ' . $provider . '`' . ($provider === $default_provider ? ' (default)' : ''),
+            $this->providers->availableProviders()
+        ));
+    }
+
+    /**
+     * Команды, которые работают только через codex: для claude-сессии и без установленного codex отвечают явным отказом.
+     *
+     * @param array<string, mixed> $command
+     * @return array<string, mixed>|null
+     */
+    private function refuseWithoutCodex(array $command, int|string $channelId, string $runtimeSessionId, string $claude_message): ?array
+    {
+        $provider = $this->provider_preferences->effectiveForRuntimeSession($runtimeSessionId);
+        $message = $provider === ProviderAvailability::CODEX
+            ? $this->providers->unavailableMessage(ProviderAvailability::CODEX)
+            : $claude_message;
+        if ($message === null || $message === '') {
+            return null;
+        }
+
+        $this->transport->sendSystem($runtimeSessionId, $message);
+
+        return $this->commandResult($command, $channelId, $runtimeSessionId, false, ['mode' => 'unsupported', 'stderr' => $message]);
+    }
+
+    /**
+     * @param array<string, mixed> $command
+     * @param array<string, mixed> $extra
+     * @return array<string, mixed>
+     */
+    private function commandResult(array $command, int|string $channelId, string $runtimeSessionId, bool $ok, array $extra): array
+    {
+        return array_merge([
+            'ok' => $ok,
+            'stdout' => '',
+            'stderr' => '',
+            'command' => $command,
+            'channel_id' => $channelId,
+            'runtime_session_id' => $runtimeSessionId,
+        ], $extra);
     }
 
     private function sendAvailableSessions(string $runtimeSessionId): void

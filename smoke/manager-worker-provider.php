@@ -65,7 +65,7 @@ PHP));
         'codex' => $codex_section,
         'claude' => $claude_section,
     ]);
-    $fresh = 'tg-1:fresh';
+    $fresh = 'tg-1-fresh';
     $env['run']($fresh);
     assertSame(true, is_file($claude_record), 'claude launched for fresh session');
     assertSame(false, is_file($codex_record), 'codex not launched for fresh claude session');
@@ -82,7 +82,7 @@ PHP));
     assertSame(['--resume', 'claude-sess-1'], array_slice($claude_args, -2), 'claude resume');
 
     // Legacy-сессия без провайдера остаётся codex даже при default claude.
-    $legacy = 'tg-1:legacy';
+    $legacy = 'tg-1-legacy';
     $env['state']->update(static function (array $data) use ($legacy): array {
         $data['sessions'][$legacy] = 'codex-legacy';
         return $data;
@@ -115,8 +115,8 @@ PHP));
         'codex' => $codex_section,
         'claude' => ['bin' => $missing_claude] + $claude_section,
     ]);
-    $started = 'tg-1:started';
-    $chosen = 'tg-1:chosen';
+    $started = 'tg-1-started';
+    $chosen = 'tg-1-chosen';
     $env['state']->write([
         'sessions' => [$started => 'claude-sess-1'],
         'session_providers' => [$started => 'claude', $chosen => 'claude'],

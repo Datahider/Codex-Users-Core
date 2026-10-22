@@ -45,12 +45,7 @@ final class RuntimeDoctor
             $issues[] = 'router.core_token is empty';
         }
 
-        $codexCwd = trim((string) $config->get('codex', 'cwd', ''));
-        if ($codexCwd === '') {
-            $issues[] = 'codex.cwd is empty';
-        } elseif (!is_dir($codexCwd)) {
-            $issues[] = "codex.cwd does not exist: {$codexCwd}";
-        }
+        $issues = [...$issues, ...$this->diagnoseDefaultProvider($config)];
 
         $storageRoot = trim((string) $config->get('storage', 'root', ''));
         if ($storageRoot === '') {
@@ -59,16 +54,32 @@ final class RuntimeDoctor
             $issues = [...$issues, ...$this->diagnoseStorageRoot($storageRoot)];
         }
 
-        $codexBin = (new OptionalFeatureConfig($config))->codexBin();
-        if (Environment::resolveCommand($codexBin) === null) {
-            $issues[] = "codex binary is not available in PATH: {$codexBin}";
-        }
-
         if (Environment::resolveCommand('logger') === null) {
             $issues[] = 'logger command is not available in PATH';
         }
 
         return $issues;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function diagnoseDefaultProvider(Config $config): array
+    {
+        $providers = new ProviderAvailability($config);
+        try {
+            $provider = $providers->defaultProvider();
+        } catch (RuntimeException $e) {
+            return [$e->getMessage()];
+        }
+
+        if ($provider === ProviderAvailability::CODEX && trim((string) $config->get('codex', 'cwd', '')) === '') {
+            return ['codex.cwd is empty'];
+        }
+
+        $reason = $providers->unavailableReason($provider);
+
+        return $reason === null ? [] : ["provider.default {$provider} is not available: {$reason}"];
     }
 
     /**

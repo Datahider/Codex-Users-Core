@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace CodexRuntime\Voice;
 
 use CodexRuntime\Config;
+use CodexRuntime\ProviderAvailability;
 use RuntimeException;
 
 final class CodexLunaVoiceSuitabilityClassifier implements VoiceSuitabilityClassifierInterface
@@ -15,6 +16,10 @@ final class CodexLunaVoiceSuitabilityClassifier implements VoiceSuitabilityClass
 
     public function classify(string $text): array
     {
+        $codex_unavailable = (new ProviderAvailability($this->config))->unavailableMessage(ProviderAvailability::CODEX);
+        if ($codex_unavailable !== null) {
+            throw new RuntimeException($codex_unavailable);
+        }
         if (!is_dir($this->tmp_dir) && !mkdir($this->tmp_dir, 0775, true) && !is_dir($this->tmp_dir)) {
             throw new RuntimeException('Cannot create voice classifier temporary directory');
         }

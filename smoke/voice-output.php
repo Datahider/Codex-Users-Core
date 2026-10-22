@@ -69,7 +69,7 @@ try {
     assertSame('', $router_http->payloads[0]['text'] ?? null, 'voice outbound text');
     assertSame('Voice42', $router_http->payloads[0]['attachments'][0]['file_id'] ?? null, 'voice attachment id');
 
-    $config = new Config(['voice_response' => ['max_characters' => 700]]);
+    $config = new Config(['voice_response' => ['max_characters' => 700], 'storage' => ['root' => $tmp_root . '/var']]);
     $modes = new VoiceResponseModeStore($tmp_root . '/modes.json');
     $modes->set('runtime-2', 'voice', 'persistent');
     $classifier = new class implements VoiceSuitabilityClassifierInterface {

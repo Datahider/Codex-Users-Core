@@ -35,7 +35,7 @@ try {
     assertSame('claude', $providers->effectiveForRuntimeSession($fresh), 'fresh session uses provider.default');
     assertSame(true, $providers->isStarted($legacy), 'legacy session is started');
     assertSame('codex', $providers->effectiveForRuntimeSession($legacy), 'legacy session without provider is codex');
-    assertSame(['sessions' => [$legacy => 'codex-legacy-id']], $store->read(), 'legacy state is not rewritten');
+    assertSame(false, isset($store->read()['session_providers']), 'legacy state is not rewritten');
 
     $providers->setSession($chosen, 'codex');
     assertSame('codex', $providers->effectiveForRuntimeSession($chosen), 'explicit choice beats default');

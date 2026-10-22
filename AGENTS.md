@@ -2,7 +2,7 @@
 
 ## Проект
 
-- `Core` — это runtime-ядро для обработки входящих событий через `codex`.
+- `Core` — это runtime-ядро для обработки входящих событий через `codex` или `claude` (см. `PROVIDERS.md`).
 - Ядро однопользовательское.
 - Внутри `Core` допустима только граница с `Router`.
 
@@ -22,7 +22,7 @@
 
 - приём входящих событий из `Router`
 - `manager_queue` и связанные runtime queues
-- запуск `codex`
+- запуск `codex` и `claude`
 - mapping `runtime_session_id -> codex_session_id`
 - core state, session contracts и lifecycle воркеров
 
