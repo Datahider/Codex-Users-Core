@@ -188,6 +188,7 @@ final class ManagerWorker
                 throw new RuntimeException('Empty text for user_message');
             }
 
+        $this->applyMessageProvider($runtimeSessionId, $event);
         $codexSessionId = $this->resolveCodexSessionId($this->readManagerState(), $runtimeSessionId);
         $provider = $this->requireAvailableProvider($runtimeSessionId);
         $model = $this->modelPreferenceStore()->effectiveForRuntimeSession($runtimeSessionId);
@@ -476,6 +477,46 @@ TEXT;
         }
 
         return (new ProviderAvailability($this->config))->cwd($provider);
+    }
+
+    /**
+     * Провайдер из meta.router_meta.provider задаёт провайдер неначатой сессии так же, как /provider.
+     *
+     * @param array<string, mixed> $event
+     */
+    private function applyMessageProvider(string $runtimeSessionId, array $event): void
+    {
+        $router_meta = is_array($event['meta']['router_meta'] ?? null) ? $event['meta']['router_meta'] : [];
+        if (!array_key_exists('provider', $router_meta)) {
+            return;
+        }
+
+        $availability = new ProviderAvailability($this->config);
+        $requested = $router_meta['provider'];
+        if (!is_string($requested) || !$availability->isKnown($requested)) {
+            $message = 'Неизвестный провайдер в метаданных сообщения: ' . json_encode($requested, JSON_UNESCAPED_UNICODE) . '.';
+            $this->transport->sendSystem($runtimeSessionId, $message);
+
+            throw new RuntimeException($message);
+        }
+
+        $providers = new ProviderPreferenceStore($this->stateStore, $this->config);
+        $current = $providers->effectiveForRuntimeSession($runtimeSessionId);
+        if ($providers->isStarted($runtimeSessionId)) {
+            if ($current === $requested) {
+                return;
+            }
+
+            $message = "Сессия уже начата с провайдером {$current}, сообщение требует провайдер {$requested}.";
+            $this->transport->sendSystem($runtimeSessionId, $message);
+
+            throw new RuntimeException($message);
+        }
+
+        $providers->setSession($runtimeSessionId, $requested);
+        if ($requested !== $current) {
+            $this->modelPreferenceStore()->clearSession($runtimeSessionId);
+        }
     }
 
     /**

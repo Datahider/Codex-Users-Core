@@ -142,6 +142,72 @@ PHP));
     assertSame(false, is_file($codex_record), 'codex not substituted for unstarted session');
     assertSame(false, isset($env['state']->read()['sessions'][$chosen]), 'unstarted session stays unstarted');
 
+    // Провайдер из метаданных сообщения.
+    $env = makeWorker($tmp_root . '/meta-provider', [
+        'codex' => $codex_section,
+        'claude' => $claude_section,
+    ]);
+    $claude_meta = ['router_meta' => ['provider' => 'claude']];
+    @unlink($codex_record);
+    @unlink($claude_record);
+
+    $meta_fresh = 'tg-1-meta-fresh';
+    $env['state']->write(['session_models' => [$meta_fresh => 'gpt-5.6-sol']]);
+    $env['run']($meta_fresh, $claude_meta);
+    assertSame(true, is_file($claude_record), 'meta provider launches claude for fresh session');
+    assertSame(false, is_file($codex_record), 'codex not launched when meta requests claude');
+    assertSame('claude', $env['state']->read()['session_providers'][$meta_fresh] ?? null, 'meta provider stored');
+    assertSame(false, isset($env['state']->read()['session_models'][$meta_fresh]), 'model cleared when meta changes provider');
+    assertSame([['kind' => 'final', 'text' => 'Ответ claude']], $env['transport']->messages, 'meta provider final delivered');
+
+    // Начатая сессия с тем же провайдером: поле игнорируется.
+    unlink($claude_record);
+    $env['transport']->messages = [];
+    $env['run']($meta_fresh, $claude_meta);
+    assertSame(['--resume', 'claude-sess-1'], array_slice(json_decode((string) file_get_contents($claude_record), true), -2), 'same meta provider resumes session');
+
+    // Начатая сессия с другим провайдером: нарушение контракта.
+    unlink($claude_record);
+    $env['transport']->messages = [];
+    $state_before = $env['state']->read();
+    $env['run']($meta_fresh, ['router_meta' => ['provider' => 'codex']]);
+    assertSame(
+        [['kind' => 'system', 'text' => 'Сессия уже начата с провайдером claude, сообщение требует провайдер codex.']],
+        $env['transport']->messages,
+        'meta provider conflicts with started session'
+    );
+    assertSame(false, is_file($codex_record), 'codex not launched on meta conflict');
+    assertSame(false, is_file($claude_record), 'claude not launched on meta conflict');
+    assertSame($state_before, $env['state']->read(), 'state unchanged on meta conflict');
+
+    // Неизвестный провайдер в метаданных.
+    foreach (['gemini', '', 42] as $bad_provider) {
+        $env['transport']->messages = [];
+        $meta_bad = 'tg-1-meta-bad';
+        $env['run']($meta_bad, ['router_meta' => ['provider' => $bad_provider]]);
+        assertSame(
+            [['kind' => 'system', 'text' => 'Неизвестный провайдер в метаданных сообщения: ' . json_encode($bad_provider) . '.']],
+            $env['transport']->messages,
+            'unknown meta provider ' . var_export($bad_provider, true)
+        );
+        assertSame(false, is_file($codex_record) || is_file($claude_record), 'no process for unknown meta provider');
+        assertSame(false, isset($env['state']->read()['session_providers'][$meta_bad]), 'unknown meta provider not stored');
+    }
+
+    // Недоступный провайдер из метаданных: сохраняется, turn падает по общим правилам.
+    $env = makeWorker($tmp_root . '/meta-unavailable', [
+        'codex' => $codex_section,
+        'claude' => ['bin' => $missing_claude] + $claude_section,
+    ]);
+    $meta_unavailable = 'tg-1-meta-unavailable';
+    $env['run']($meta_unavailable, $claude_meta);
+    assertSame(
+        [['kind' => 'system', 'text' => "Провайдер claude недоступен: {$missing_claude} не найден в PATH. Выберите другой провайдер командой /provider."]],
+        $env['transport']->messages,
+        'unavailable meta provider'
+    );
+    assertSame(false, is_file($codex_record), 'codex not substituted for unavailable meta provider');
+
     fwrite(STDOUT, "Manager worker provider smoke: OK\n");
     exit(0);
 } catch (Throwable $e) {
@@ -242,13 +308,13 @@ function makeWorker(string $root, array $sections): array
         claude: new ClaudeProcess($config, $logger, $active_turn)
     );
     $process = new ReflectionMethod(ManagerWorker::class, 'processUserMessage');
-    $run = static function (string $session_id) use ($process, $worker): void {
+    $run = static function (string $session_id, array $meta = []) use ($process, $worker): void {
         try {
             $process->invoke($worker, [
                 'type' => 'user_message',
                 'session_id' => $session_id,
                 'text' => 'Привет',
-                'meta' => [],
+                'meta' => $meta,
             ]);
         } catch (Throwable) {
             // Ошибка turn допустима; проверяются outbound и state.
