@@ -82,8 +82,10 @@ Source of truth для таких skills находится внутри дер�
 - `/login codex` сначала проверяет `codex.bin` в `PATH`, затем выполняет `codex login status`; для неавторизованного Codex запускается `codex login --device-auth` без runtime session variables;
 - URL и one-time code Codex отправляются в private chat; после подтверждения в браузере Core ожидает завершения CLI;
 - `/login claude` сначала проверяет `claude.bin` в `PATH`, затем выполняет `claude auth status --json`; для неавторизованного Claude запускается `claude auth login --claudeai` без runtime session variables;
-- OAuth URL Claude отправляется в private chat, а полученный в браузере code пользователь возвращает командой `/login claude <code>`;
-- незавершённый Claude OAuth flow хранится только в памяти `control_watcher`; после его рестарта нужно снова выполнить `/login claude`;
+- OAuth URL Claude отправляется в private chat с кнопкой `Отмена`; следующее обычное текстовое сообщение в этом private chat считается OAuth code и не передаётся агенту;
+- при получении code ожидание завершается до проверки авторизации; при ошибке новый flow запускается повторной командой `/login claude`;
+- кнопка `Отмена` завершает OAuth-процесс без видимой пользователю команды;
+- признак ожидания хранится в shared runtime state, а сам Claude OAuth process — в памяти `control_watcher`; после его рестарта продолжить старый flow нельзя;
 - новый flow не запускается, если провайдер уже авторизован;
 - отсутствие бинарника, некорректный вывод CLI, ненулевой exit code и истечение timeout сообщаются явно; другой провайдер не подставляется;
 - `codex.device_auth_timeout_seconds` и `claude.oauth_timeout_seconds` по умолчанию равны `930`;

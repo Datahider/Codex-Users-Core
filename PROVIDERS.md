@@ -126,9 +126,16 @@ Core запускает turn через один из провайдеров:
   бинарник в `PATH`. Отсутствие бинарника завершает команду явной ошибкой.
 - `/login codex` использует device-code flow `codex login --device-auth`.
 - `/login claude` использует OAuth flow `claude auth login --claudeai`, выдаёт
-  пользователю URL и ожидает отдельную команду `/login claude <code>`.
-- Одновременно может существовать один незавершённый Claude OAuth flow. Он живёт
-  только в памяти `control_watcher` и теряется при рестарте процесса.
+  пользователю URL с кнопкой `Отмена` и ожидает следующее обычное текстовое
+  сообщение в том же private runtime session как OAuth code. Сообщение с code
+  не попадает в manager queue.
+- При поступлении code Core сначала снимает shared-признак ожидания, затем
+  передаёт code в Claude CLI. Ошибка проверки не восстанавливает ожидание.
+- Нажатие `Отмена` приходит как служебный callback, завершает Claude OAuth
+  process и снимает shared-признак ожидания.
+- Одновременно может существовать один незавершённый Claude OAuth flow. Сам
+  process живёт только в памяти `control_watcher`; shared runtime state нужен
+  только для маршрутизации следующего сообщения в control queue.
 - Auth-процессы не получают `CODEX_SID`, `RUNTIME_SID` и `CLAUDE_SID`.
 
 ## Провайдер из метаданных сообщения
