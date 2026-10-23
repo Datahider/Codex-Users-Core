@@ -18,6 +18,7 @@ final class ControlWatcher
     private CodexModelCatalog $model_catalog;
     private ProviderAvailability $providers;
     private ProviderPreferenceStore $provider_preferences;
+    private CodexDeviceAuthInterface $device_auth;
 
     public function __construct(
         private Config $config,
@@ -32,12 +33,14 @@ final class ControlWatcher
         private LimitMonitor $limit_monitor,
         private VoiceCommandServiceInterface $voice_commands,
         ?ModelPreferenceStore $model_preferences = null,
-        ?CodexModelCatalog $model_catalog = null
+        ?CodexModelCatalog $model_catalog = null,
+        ?CodexDeviceAuthInterface $device_auth = null
     ) {
         $this->model_preferences = $model_preferences ?? new ModelPreferenceStore($stateStore, $config);
         $this->model_catalog = $model_catalog ?? new CodexModelCatalog($config);
         $this->providers = new ProviderAvailability($config);
         $this->provider_preferences = new ProviderPreferenceStore($stateStore, $config);
+        $this->device_auth = $device_auth ?? new CodexDeviceAuth($config);
     }
 
     public function run(): void
@@ -164,6 +167,10 @@ final class ControlWatcher
             ];
         }
 
+        if (preg_match('/^\/login(?:@\S+)?$/ui', $text)) {
+            return $this->processLoginCommand($command, $channelId, $sessionId);
+        }
+
         if (preg_match('/^\/reset(?:@\S+)?(?:\s|$)/ui', $text)) {
             return $this->processResetSessionCommand($command, $channelId, $sessionId);
         }
@@ -242,6 +249,50 @@ final class ControlWatcher
             'forwarded_to_manager' => true,
             'event_id' => $eventId,
         ];
+    }
+
+    /**
+     * @param array<string, mixed> $command
+     * @return array<string, mixed>
+     */
+    private function processLoginCommand(array $command, int|string $channelId, string $runtimeSessionId): array
+    {
+        $meta = is_array($command['meta'] ?? null) ? $command['meta'] : [];
+        if (($meta['chat_type'] ?? null) !== 'private') {
+            $message = 'Команда /login работает только в личном чате.';
+            $this->transport->sendSystem($runtimeSessionId, $message);
+
+            return $this->commandResult($command, $channelId, $runtimeSessionId, false, [
+                'mode' => 'private_only',
+                'stderr' => $message,
+            ]);
+        }
+
+        try {
+            if ($this->device_auth->isLoggedIn()) {
+                $this->transport->sendSystem($runtimeSessionId, 'Codex уже авторизован.');
+
+                return $this->commandResult($command, $channelId, $runtimeSessionId, true, ['mode' => 'already_authorized']);
+            }
+
+            $this->device_auth->login(function (string $url, string $code) use ($runtimeSessionId): void {
+                $this->transport->sendSystem(
+                    $runtimeSessionId,
+                    "Откройте ссылку и подтвердите вход в Codex:\n{$url}\n\nКод: `{$code}`\n\nКод действует 15 минут. Никому его не пересылайте."
+                );
+            });
+            $this->transport->sendSystem($runtimeSessionId, 'Codex авторизован.');
+
+            return $this->commandResult($command, $channelId, $runtimeSessionId, true, ['mode' => 'authorized']);
+        } catch (Throwable $e) {
+            $message = 'Не удалось авторизовать Codex: ' . $e->getMessage();
+            $this->transport->sendSystem($runtimeSessionId, $message);
+
+            return $this->commandResult($command, $channelId, $runtimeSessionId, false, [
+                'mode' => 'failed',
+                'stderr' => $e->getMessage(),
+            ]);
+        }
     }
 
     /**

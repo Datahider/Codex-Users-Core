@@ -14,6 +14,8 @@ return [
         // По умолчанию Codex запускается из домашнего каталога пользователя.
         // Переопредели, только если нужен другой рабочий каталог.
         'cwd' => $home,
+        // Ожидание завершения /login device-code flow.
+        'device_auth_timeout_seconds' => 930,
         'extra_args' => [
             '--skip-git-repo-check',
             '--json',
