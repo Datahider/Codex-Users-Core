@@ -247,6 +247,28 @@ run_usage() {
   echo "usage: run <path-to-script> [args...]" >&2
 }
 
+timeout_duration_is_allowed() {
+  local duration number suffix multiplier
+  duration="$1"
+
+  if [[ ! "$duration" =~ ^([0-9]+([.][0-9]+)?)([smhd]?)$ ]]; then
+    return 1
+  fi
+
+  number="${BASH_REMATCH[1]}"
+  suffix="${BASH_REMATCH[3]}"
+  case "$suffix" in
+    ""|s) multiplier=1 ;;
+    m) multiplier=60 ;;
+    h) multiplier=3600 ;;
+    d) multiplier=86400 ;;
+    *) return 1 ;;
+  esac
+
+  LC_ALL=C awk -v number="$number" -v multiplier="$multiplier" \
+    'BEGIN { seconds = number * multiplier; exit !(seconds > 0 && seconds <= 30) }'
+}
+
 parse_due_prefix() {
   local when_spec due
   when_spec="$1"
@@ -306,8 +328,19 @@ if [[ "$INVOKED_NAME" == "sleep" ]]; then
 fi
 
 if [[ "$INVOKED_NAME" == "timeout" ]]; then
-  echo "timeout недоступен в этом окружении" >&2
-  exit 2
+  if [[ "$#" -lt 2 ]] || ! timeout_duration_is_allowed "$1"; then
+    echo "timeout duration must be greater than 0 and no greater than 30 seconds" >&2
+    echo "usage: timeout <duration> <command...>" >&2
+    exit 2
+  fi
+
+  REAL_TIMEOUT="$(resolve_real_command timeout || true)"
+  if [[ -z "$REAL_TIMEOUT" ]]; then
+    echo "timeout failed: real timeout command is not available in PATH" >&2
+    exit 127
+  fi
+
+  COMMAND_STRING="$(build_command "$REAL_TIMEOUT" --kill-after=1s "$@")"
 fi
 
 if [[ "$INVOKED_NAME" == "schedule" ]]; then
