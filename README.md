@@ -74,18 +74,20 @@ Source of truth для таких skills находится внутри дер�
 
 `codex.bin` по умолчанию равен `codex`, а `manager_queue.max_workers` — `1`.
 
-## Авторизация Codex без консоли
+## Авторизация провайдеров без консоли
 
-`/login` авторизует Codex для Linux-пользователя, от которого запущен Core:
+Авторизация выполняется отдельно для каждого провайдера и только в private chat:
 
-- команда разрешена только в private chat; в группе или без подтверждённого `meta.chat_type=private` Core отказывает;
-- Core сначала выполняет `codex login status`; при действующей авторизации новый flow не запускается;
-- для неавторизованного Codex Core запускает `codex login --device-auth` без `CODEX_SID` и `RUNTIME_SID`;
-- полученные из CLI URL и one-time code отправляются в тот же private chat ровно один раз;
-- после подтверждения в браузере Core ожидает успешного завершения CLI и сообщает о готовности;
-- если CLI не выдал URL и code, завершился с ошибкой или не завершился за `codex.device_auth_timeout_seconds`, Core явно сообщает об ошибке;
-- `codex.device_auth_timeout_seconds` по умолчанию равен `930`;
-- Codex credentials хранятся только в локальном Codex home этого Linux-пользователя; Router и Transport их не получают.
+- `/login` сначала проверяет наличие `codex.bin` и `claude.bin` в `PATH`, затем показывает статус обоих провайдеров и команды авторизации;
+- `/login codex` сначала проверяет `codex.bin` в `PATH`, затем выполняет `codex login status`; для неавторизованного Codex запускается `codex login --device-auth` без runtime session variables;
+- URL и one-time code Codex отправляются в private chat; после подтверждения в браузере Core ожидает завершения CLI;
+- `/login claude` сначала проверяет `claude.bin` в `PATH`, затем выполняет `claude auth status --json`; для неавторизованного Claude запускается `claude auth login --claudeai` без runtime session variables;
+- OAuth URL Claude отправляется в private chat, а полученный в браузере code пользователь возвращает командой `/login claude <code>`;
+- незавершённый Claude OAuth flow хранится только в памяти `control_watcher`; после его рестарта нужно снова выполнить `/login claude`;
+- новый flow не запускается, если провайдер уже авторизован;
+- отсутствие бинарника, некорректный вывод CLI, ненулевой exit code и истечение timeout сообщаются явно; другой провайдер не подставляется;
+- `codex.device_auth_timeout_seconds` и `claude.oauth_timeout_seconds` по умолчанию равны `930`;
+- credentials хранятся только в локальных каталогах CLI Linux-пользователя Core; Router и Transport их не получают.
 
 Голосовые функции и отправка файлов опциональны. Их параметры не
 блокируют запуск Core:

@@ -24,6 +24,7 @@ return [
     // Провайдер claude (Claude Code CLI). Нужен, только если claude используется.
     // 'claude' => [
     //     'bin' => 'claude',
+    //     'oauth_timeout_seconds' => 930,
     //     'model' => 'opus',
     //     'models' => ['opus', 'sonnet', 'haiku'],
     //     'cwd' => $home,
