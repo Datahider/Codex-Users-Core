@@ -18,7 +18,7 @@
 - обработку `manager-queue`
 - запуск `codex`
 - связь `runtime_session_id -> codex_session_id`
-- команды управления вроде `/stop`, `/reset`, `/session`, `/model`, `/provider`
+- команды управления вроде `/stop`, `/reset`, `/session`, `/model`, `/provider`, `/login`
 - выпуск отложенных задач в `manager-queue`
 - исходящие семантические payload'ы для границы с транспортом
 
@@ -73,6 +73,19 @@ Source of truth для таких skills находится внутри дер�
 - `codex.cwd`, если `codex` должен запускаться из другого каталога
 
 `codex.bin` по умолчанию равен `codex`, а `manager_queue.max_workers` — `1`.
+
+## Авторизация Codex без консоли
+
+`/login` авторизует Codex для Linux-пользователя, от которого запущен Core:
+
+- команда разрешена только в private chat; в группе или без подтверждённого `meta.chat_type=private` Core отказывает;
+- Core сначала выполняет `codex login status`; при действующей авторизации новый flow не запускается;
+- для неавторизованного Codex Core запускает `codex login --device-auth` без `CODEX_SID` и `RUNTIME_SID`;
+- полученные из CLI URL и one-time code отправляются в тот же private chat ровно один раз;
+- после подтверждения в браузере Core ожидает успешного завершения CLI и сообщает о готовности;
+- если CLI не выдал URL и code, завершился с ошибкой или не завершился за `codex.device_auth_timeout_seconds`, Core явно сообщает об ошибке;
+- `codex.device_auth_timeout_seconds` по умолчанию равен `930`;
+- Codex credentials хранятся только в локальном Codex home этого Linux-пользователя; Router и Transport их не получают.
 
 Голосовые функции и отправка файлов опциональны. Их параметры не
 блокируют запуск Core:

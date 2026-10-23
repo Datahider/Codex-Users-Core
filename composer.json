@@ -40,6 +40,8 @@
             "php smoke/provider-availability.php",
             "php smoke/provider-selection.php",
             "php smoke/provider-command.php",
+            "php smoke/codex-device-auth.php",
+            "php smoke/login-command.php",
             "php smoke/claude-process.php",
             "php smoke/manager-worker-provider.php",
             "php smoke/doctor-provider-default.php",
