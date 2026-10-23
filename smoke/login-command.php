@@ -111,6 +111,20 @@ try {
     assertSame(false, $result['ok'] ?? null, 'unknown provider refused');
     assertSame(['Неизвестный провайдер: other. Используйте `/login codex` или `/login claude`.'], $transport->systemMessages(), 'unknown provider message');
 
+    [$missing_run, $missing_transport] = makeWatcher(
+        $tmp_root,
+        $codex_auth,
+        $claude_auth,
+        $tmp_root . '/missing-claude'
+    );
+    $begin_calls = $claude_auth->begin_calls;
+    $result = $missing_run('/login claude', ['chat_type' => 'private']);
+    assertSame('unavailable', $result['mode'] ?? null, 'missing binary mode');
+    assertSame($begin_calls, $claude_auth->begin_calls, 'missing binary checked before auth');
+    assertSame([
+        "Не удалось авторизовать Claude: {$tmp_root}/missing-claude не найден в PATH.",
+    ], $missing_transport->systemMessages(), 'missing binary message');
+
     fwrite(STDOUT, "Login command smoke: OK\n");
     exit(0);
 } catch (Throwable $e) {
@@ -120,12 +134,17 @@ try {
     deleteTree($tmp_root);
 }
 
-function makeWatcher(string $root, CodexDeviceAuthInterface $codex_auth, ClaudeSubscriptionAuthInterface $claude_auth): array
+function makeWatcher(
+    string $root,
+    CodexDeviceAuthInterface $codex_auth,
+    ClaudeSubscriptionAuthInterface $claude_auth,
+    ?string $claude_bin = null
+): array
 {
     $config = new Config([
         'storage' => ['root' => $root . '/var'],
         'codex' => ['bin' => $root . '/codex', 'cwd' => $root],
-        'claude' => ['bin' => $root . '/claude', 'cwd' => $root, 'model' => 'opus', 'models' => ['opus']],
+        'claude' => ['bin' => $claude_bin ?? $root . '/claude', 'cwd' => $root, 'model' => 'opus', 'models' => ['opus']],
     ]);
     $paths = new RuntimePaths($config);
     $transport = new class implements TransportClientInterface {

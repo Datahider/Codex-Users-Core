@@ -19,6 +19,7 @@ final class ControlWatcher
     private ProviderAvailability $providers;
     private ProviderPreferenceStore $provider_preferences;
     private CodexDeviceAuthInterface $device_auth;
+    private ClaudeSubscriptionAuthInterface $claude_auth;
 
     public function __construct(
         private Config $config,
@@ -34,13 +35,15 @@ final class ControlWatcher
         private VoiceCommandServiceInterface $voice_commands,
         ?ModelPreferenceStore $model_preferences = null,
         ?CodexModelCatalog $model_catalog = null,
-        ?CodexDeviceAuthInterface $device_auth = null
+        ?CodexDeviceAuthInterface $device_auth = null,
+        ?ClaudeSubscriptionAuthInterface $claude_auth = null
     ) {
         $this->model_preferences = $model_preferences ?? new ModelPreferenceStore($stateStore, $config);
         $this->model_catalog = $model_catalog ?? new CodexModelCatalog($config);
         $this->providers = new ProviderAvailability($config);
         $this->provider_preferences = new ProviderPreferenceStore($stateStore, $config);
         $this->device_auth = $device_auth ?? new CodexDeviceAuth($config);
+        $this->claude_auth = $claude_auth ?? new ClaudeSubscriptionAuth($config);
     }
 
     public function run(): void
@@ -167,8 +170,8 @@ final class ControlWatcher
             ];
         }
 
-        if (preg_match('/^\/login(?:@\S+)?$/ui', $text)) {
-            return $this->processLoginCommand($command, $channelId, $sessionId);
+        if (preg_match('/^\/login(?:@\S+)?(?:\s|$)/ui', $text)) {
+            return $this->processLoginCommand($command, $channelId, $sessionId, $text);
         }
 
         if (preg_match('/^\/reset(?:@\S+)?(?:\s|$)/ui', $text)) {
@@ -255,7 +258,7 @@ final class ControlWatcher
      * @param array<string, mixed> $command
      * @return array<string, mixed>
      */
-    private function processLoginCommand(array $command, int|string $channelId, string $runtimeSessionId): array
+    private function processLoginCommand(array $command, int|string $channelId, string $runtimeSessionId, string $text): array
     {
         $meta = is_array($command['meta'] ?? null) ? $command['meta'] : [];
         if (($meta['chat_type'] ?? null) !== 'private') {
@@ -266,6 +269,32 @@ final class ControlWatcher
                 'mode' => 'private_only',
                 'stderr' => $message,
             ]);
+        }
+
+        preg_match('/^\/login(?:@\S+)?(?:\s+(.*))?$/ui', $text, $matches);
+        $argument = trim((string) ($matches[1] ?? ''));
+        if ($argument === '') {
+            return $this->sendLoginStatus($command, $channelId, $runtimeSessionId);
+        }
+
+        [$provider, $credential] = array_pad(preg_split('/\s+/', $argument, 2) ?: [], 2, '');
+        $provider = strtolower($provider);
+        if (!in_array($provider, $this->providers->knownProviders(), true)) {
+            $message = "Неизвестный провайдер: {$provider}. Используйте `/login codex` или `/login claude`.";
+            $this->transport->sendSystem($runtimeSessionId, $message);
+            return $this->commandResult($command, $channelId, $runtimeSessionId, false, ['mode' => 'unknown_provider', 'stderr' => $message]);
+        }
+
+        $unavailable = $this->loginBinaryUnavailableReason($provider);
+        if ($unavailable !== null) {
+            $name = $provider === ProviderAvailability::CODEX ? 'Codex' : 'Claude';
+            $message = "Не удалось авторизовать {$name}: {$unavailable}.";
+            $this->transport->sendSystem($runtimeSessionId, $message);
+            return $this->commandResult($command, $channelId, $runtimeSessionId, false, ['mode' => 'unavailable', 'stderr' => $unavailable]);
+        }
+
+        if ($provider === ProviderAvailability::CLAUDE) {
+            return $this->processClaudeLoginCommand($command, $channelId, $runtimeSessionId, $credential);
         }
 
         try {
@@ -293,6 +322,67 @@ final class ControlWatcher
                 'stderr' => $e->getMessage(),
             ]);
         }
+    }
+
+    /** @param array<string, mixed> $command @return array<string, mixed> */
+    private function sendLoginStatus(array $command, int|string $channelId, string $runtimeSessionId): array
+    {
+        $lines = ['Авторизация:'];
+        foreach ($this->providers->knownProviders() as $provider) {
+            $name = $provider === ProviderAvailability::CODEX ? 'Codex' : 'Claude';
+            $unavailable = $this->loginBinaryUnavailableReason($provider);
+            if ($unavailable !== null) {
+                $lines[] = "{$name}: недоступен — {$unavailable}.";
+                continue;
+            }
+            try {
+                $logged_in = $provider === ProviderAvailability::CODEX
+                    ? $this->device_auth->isLoggedIn()
+                    : $this->claude_auth->isLoggedIn();
+                $lines[] = "{$name}: " . ($logged_in ? 'авторизован.' : 'не авторизован.');
+            } catch (Throwable $e) {
+                $lines[] = "{$name}: ошибка проверки — {$e->getMessage()}.";
+            }
+        }
+        $lines[] = '';
+        $lines[] = 'Команды:';
+        $lines[] = '`/login codex`';
+        $lines[] = '`/login claude`';
+        $this->transport->sendSystem($runtimeSessionId, implode("\n", $lines));
+        return $this->commandResult($command, $channelId, $runtimeSessionId, true, ['mode' => 'status']);
+    }
+
+    /** @param array<string, mixed> $command @return array<string, mixed> */
+    private function processClaudeLoginCommand(array $command, int|string $channelId, string $runtimeSessionId, string $code): array
+    {
+        try {
+            if ($code !== '') {
+                $this->claude_auth->completeLogin($code);
+                $this->transport->sendSystem($runtimeSessionId, 'Claude авторизован через Claude Pro.');
+                return $this->commandResult($command, $channelId, $runtimeSessionId, true, ['mode' => 'authorized']);
+            }
+            if ($this->claude_auth->isLoggedIn()) {
+                $this->transport->sendSystem($runtimeSessionId, 'Claude уже авторизован через Claude Pro.');
+                return $this->commandResult($command, $channelId, $runtimeSessionId, true, ['mode' => 'already_authorized']);
+            }
+            $this->claude_auth->beginLogin(function (string $url) use ($runtimeSessionId): void {
+                $this->transport->sendSystem(
+                    $runtimeSessionId,
+                    "Откройте ссылку и войдите в Claude Pro:\n{$url}\n\nПосле входа пришлите полученный код командой:\n`/login claude <код>`"
+                );
+            });
+            return $this->commandResult($command, $channelId, $runtimeSessionId, true, ['mode' => 'awaiting_code']);
+        } catch (Throwable $e) {
+            $message = 'Не удалось авторизовать Claude: ' . $e->getMessage();
+            $this->transport->sendSystem($runtimeSessionId, $message);
+            return $this->commandResult($command, $channelId, $runtimeSessionId, false, ['mode' => 'failed', 'stderr' => $e->getMessage()]);
+        }
+    }
+
+    private function loginBinaryUnavailableReason(string $provider): ?string
+    {
+        $bin = $this->providers->bin($provider);
+        return Environment::resolveCommand($bin) === null ? "{$bin} не найден в PATH" : null;
     }
 
     /**
