@@ -156,6 +156,41 @@ final class ControlWatcher
      * @param array<string, mixed> $command
      * @return array<string, mixed>
      */
+    private function processKillCommand(array $command, int|string $channelId, string $sessionId, string $text): array
+    {
+        $result = ['ok' => true, 'stdout' => '', 'stderr' => '', 'command' => $command, 'channel_id' => $channelId, 'runtime_session_id' => $sessionId];
+        if (!preg_match('/^\/kill(?:@\S+)?$/ui', trim($text))) {
+            $this->transport->sendSystem($sessionId, 'Команда /kill не принимает аргументов.');
+            return $result;
+        }
+        $pidFile = (string) $this->config->get('background', 'bot_pid_file', (new RuntimePaths($this->config))->mainPidFile());
+        $raw = is_file($pidFile) ? trim((string) file_get_contents($pidFile)) : '';
+        $failure = null;
+        if ($raw === '' || !ctype_digit($raw)) {
+            $failure = "нет корректного pid-файла $pidFile";
+        } elseif (!posix_kill((int) $raw, 0)) {
+            $failure = "процесс $raw не найден";
+        }
+        if ($failure !== null) {
+            $this->logger->error('Core /kill failed', ['reason' => $failure]);
+            $this->transport->sendSystem($sessionId, "Не удалось завершить ядро: $failure.");
+            return ['ok' => false, 'stderr' => $failure] + $result;
+        }
+        $this->logger->warning('Core /kill requested', ['main_pid' => (int) $raw]);
+        $this->transport->sendSystem($sessionId, 'Ядро завершается по /kill. systemd перезапустит его через несколько секунд.');
+        if (!posix_kill((int) $raw, SIGKILL)) {
+            $error = posix_strerror(posix_get_last_error());
+            $this->logger->error('Core /kill failed', ['reason' => $error]);
+            $this->transport->sendSystem($sessionId, "Не удалось завершить ядро: $error.");
+            return ['ok' => false, 'stderr' => $error] + $result;
+        }
+        return $result;
+    }
+
+    /**
+     * @param array<string, mixed> $command
+     * @return array<string, mixed>
+     */
     private function processTransportCommand(array $command): array
     {
         $text = trim((string) ($command['text'] ?? ''));
@@ -172,6 +207,10 @@ final class ControlWatcher
 
         if (preg_match('/^\/login(?:@\S+)?(?:\s|$)/ui', $text)) {
             return $this->processLoginCommand($command, $channelId, $sessionId, $text);
+        }
+
+        if (preg_match('/^\/kill(?:@\S+)?(?:\s|$)/ui', $text)) {
+            return $this->processKillCommand($command, $channelId, $sessionId, $text);
         }
 
         if (preg_match('/^\/reset(?:@\S+)?(?:\s|$)/ui', $text)) {
