@@ -51,6 +51,7 @@ final class ControlWatcher
         $this->acquireLock();
         $requeued = $this->commands->requeueAllRunning();
         $this->logger->info('Control watcher started');
+        $this->deliverKillNotice();
         if ($requeued !== []) {
             $this->logger->warning('Requeued stale control commands', ['command_ids' => $requeued]);
         }
@@ -152,6 +153,39 @@ final class ControlWatcher
         file_put_contents($pidFile, (string) getmypid());
     }
 
+    private function killNoticeFile(): string
+    {
+        return (new RuntimePaths($this->config))->stateDir() . '/kill-notice.json';
+    }
+
+    private function writeKillNotice(string $sessionId): void
+    {
+        $file = $this->killNoticeFile();
+        if (!is_dir(dirname($file)) && !mkdir(dirname($file), 0775, true) && !is_dir(dirname($file))) {
+            throw new \RuntimeException('Cannot create ' . dirname($file));
+        }
+        $tmp = $file . '.tmp';
+        if (file_put_contents($tmp, json_encode(['runtime_session_id' => $sessionId, 'requested_at' => time()])) === false || !rename($tmp, $file)) {
+            throw new \RuntimeException("Cannot write $file");
+        }
+    }
+
+    private function deliverKillNotice(): void
+    {
+        $file = $this->killNoticeFile();
+        if (!is_file($file)) {
+            return;
+        }
+        $notice = json_decode((string) file_get_contents($file), true);
+        unlink($file);
+        if (!is_array($notice) || !is_string($notice['runtime_session_id'] ?? null) || $notice['runtime_session_id'] === '' || !is_int($notice['requested_at'] ?? null)) {
+            $this->logger->error('Invalid kill notice file', ['file' => $file]);
+            return;
+        }
+        $seconds = max(0, time() - $notice['requested_at']);
+        $this->transport->sendSystem($notice['runtime_session_id'], "Ядро снова доступно после /kill (перезапуск занял $seconds с).");
+    }
+
     /**
      * @param array<string, mixed> $command
      * @return array<string, mixed>
@@ -176,6 +210,7 @@ final class ControlWatcher
             $this->transport->sendSystem($sessionId, "Не удалось завершить ядро: $failure.");
             return ['ok' => false, 'stderr' => $failure] + $result;
         }
+        $this->writeKillNotice($sessionId);
         $this->logger->warning('Core /kill requested', ['main_pid' => (int) $raw]);
         $this->transport->sendSystem($sessionId, 'Ядро завершается по /kill. systemd перезапустит его через несколько секунд.');
         if (!posix_kill((int) $raw, SIGKILL)) {
