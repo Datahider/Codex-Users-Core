@@ -27,7 +27,7 @@ mkdir($tmp_root, 0775, true);
 $victim = null;
 
 try {
-    [$run, $transport, $paths] = makeWatcher($tmp_root);
+    [$run, $transport, $paths, $deliver] = makeWatcher($tmp_root);
 
     // A stand-in for the main Core process.
     $victim = proc_open(['sleep', '60'], [], $pipes);
@@ -48,7 +48,32 @@ try {
     assertSame(['Ядро завершается по /kill. systemd перезапустит его через несколько секунд.'], $transport->systemMessages(), 'kill message');
     assertSame(true, $result['ok'] ?? null, 'kill result ok');
 
+    $notice_file = $tmp_root . '/var/state/kill-notice.json';
+    $notice = json_decode((string) file_get_contents($notice_file), true);
+    assertSame('session-1', $notice['runtime_session_id'] ?? null, 'notice keeps session');
+    assertSame(true, is_int($notice['requested_at'] ?? null), 'notice keeps time');
+
     $transport->messages = [];
+    $transport->sent_to = [];
+    file_put_contents($notice_file, json_encode(['runtime_session_id' => 'session-1', 'requested_at' => time() - 7]));
+    $deliver();
+    assertSame(1, count($transport->sent_to), 'one restart notice');
+    assertSame('session-1', $transport->sent_to[0], 'restart notice goes to /kill session');
+    assertSame(1, preg_match('/^Ядро снова доступно после \/kill \(перезапуск занял ([0-9]+) с\)\.$/u', $transport->systemMessages()[0], $m), 'restart notice text: ' . $transport->systemMessages()[0]);
+    assertSame(true, (int) $m[1] >= 7 && (int) $m[1] <= 9, 'restart duration');
+    assertSame(false, is_file($notice_file), 'notice removed');
+
+    $transport->messages = [];
+    $deliver();
+    assertSame([], $transport->systemMessages(), 'no notice without file');
+
+    file_put_contents($notice_file, 'garbage');
+    $deliver();
+    assertSame([], $transport->systemMessages(), 'garbage notice is not sent');
+    assertSame(false, is_file($notice_file), 'garbage notice removed');
+
+    $transport->messages = [];
+    $transport->sent_to = [];
     unlink($paths->mainPidFile());
     $result = $run('/kill');
     assertSame(false, $result['ok'] ?? null, 'missing pid file fails');
@@ -93,10 +118,11 @@ function makeWatcher(string $root): array
     $paths = new RuntimePaths($config);
     $transport = new class implements TransportClientInterface {
         public array $messages = [];
+        public array $sent_to = [];
         public function sendMessage(int|string $chatId, string $text, ?int $replyToMessageId = null, ?string $parseMode = null, bool $disableNotification = false): array { return []; }
         public function sendTranscript(int|string $chatId, string $text): array { return []; }
         public function sendWarning(int|string $chatId, string $text): array { return []; }
-        public function sendSystem(int|string $chatId, string $text): array { $this->messages[] = $text; return []; }
+        public function sendSystem(int|string $chatId, string $text): array { $this->messages[] = $text; $this->sent_to[] = (string) $chatId; return []; }
         public function sendChatAction(int|string $chatId, string $action = 'typing'): void {}
         public function systemMessages(): array { return $this->messages; }
     };
@@ -114,7 +140,9 @@ function makeWatcher(string $root): array
     $run = static fn(string $text): array => $method->invoke($watcher, [
         'type' => 'transport_command', 'text' => $text, 'channel_id' => 'session-1', 'session_id' => 'session-1', 'meta' => [],
     ]);
-    return [$run, $transport, $paths];
+    $notice = new ReflectionMethod(ControlWatcher::class, 'deliverKillNotice');
+    $deliver = static fn(): mixed => $notice->invoke($watcher);
+    return [$run, $transport, $paths, $deliver];
 }
 
 function assertSame(mixed $expected, mixed $actual, string $label): void
