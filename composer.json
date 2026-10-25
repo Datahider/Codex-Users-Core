@@ -43,6 +43,7 @@
             "php smoke/codex-device-auth.php",
             "php smoke/claude-subscription-auth.php",
             "php smoke/login-command.php",
+            "php smoke/onec-enrollment-command.php",
             "php smoke/claude-process.php",
             "php smoke/manager-worker-provider.php",
             "php smoke/doctor-provider-default.php",

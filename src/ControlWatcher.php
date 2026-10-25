@@ -10,6 +10,7 @@ use DateTimeImmutable;
 use RuntimeException;
 use Throwable;
 use CodexRuntime\Voice\VoiceCommandServiceInterface;
+use CodexRuntime\Router\TransportEnrollmentServiceInterface;
 
 final class ControlWatcher
 {
@@ -36,7 +37,8 @@ final class ControlWatcher
         ?ModelPreferenceStore $model_preferences = null,
         ?CodexModelCatalog $model_catalog = null,
         ?CodexDeviceAuthInterface $device_auth = null,
-        ?ClaudeSubscriptionAuthInterface $claude_auth = null
+        ?ClaudeSubscriptionAuthInterface $claude_auth = null,
+        private ?TransportEnrollmentServiceInterface $transport_enrollment = null
     ) {
         $this->model_preferences = $model_preferences ?? new ModelPreferenceStore($stateStore, $config);
         $this->model_catalog = $model_catalog ?? new CodexModelCatalog($config);
@@ -244,6 +246,10 @@ final class ControlWatcher
             return $this->processLoginCommand($command, $channelId, $sessionId, $text);
         }
 
+        if (preg_match('/^\/1c(?:@\S+)?(?:\s|$)/ui', $text)) {
+            return $this->processOnecCommand($command, $channelId, $sessionId, $text);
+        }
+
         if (preg_match('/^\/kill(?:@\S+)?(?:\s|$)/ui', $text)) {
             return $this->processKillCommand($command, $channelId, $sessionId, $text);
         }
@@ -326,6 +332,43 @@ final class ControlWatcher
             'forwarded_to_manager' => true,
             'event_id' => $eventId,
         ];
+    }
+
+    /** @param array<string, mixed> $command @return array<string, mixed> */
+    private function processOnecCommand(array $command, int|string $channelId, string $runtimeSessionId, string $text): array
+    {
+        if (!preg_match('/^\/1c(?:@\S+)?$/ui', trim($text))) {
+            $message = 'Команда /1c не принимает аргументов.';
+            $this->transport->sendSystem($runtimeSessionId, $message);
+            return $this->commandResult($command, $channelId, $runtimeSessionId, false, ['mode' => 'invalid_arguments', 'stderr' => $message]);
+        }
+
+        $meta = is_array($command['meta'] ?? null) ? $command['meta'] : [];
+        if (($meta['chat_type'] ?? null) !== 'private') {
+            $message = 'Команда /1c работает только в личном чате.';
+            $this->transport->sendSystem($runtimeSessionId, $message);
+            return $this->commandResult($command, $channelId, $runtimeSessionId, false, ['mode' => 'private_only', 'stderr' => $message]);
+        }
+
+        try {
+            if ($this->transport_enrollment === null) {
+                throw new RuntimeException('сервис подключения транспорта не настроен');
+            }
+            $enrollment = $this->transport_enrollment->createOnecCode();
+            $expires_at = (new DateTimeImmutable($enrollment['expires_at']))
+                ->setTimezone(new \DateTimeZone('Europe/Moscow'))
+                ->format('H:i:s d.m.Y');
+            $this->transport->sendSystem(
+                $runtimeSessionId,
+                "Код подключения 1С: `{$enrollment['enrollment_code']}`\n\n"
+                . "Введите его в настройках расширения «Гоша ИИ». Код действует до {$expires_at} (МСК)."
+            );
+            return $this->commandResult($command, $channelId, $runtimeSessionId, true, ['mode' => 'created']);
+        } catch (Throwable $exception) {
+            $message = 'Не удалось получить код подключения 1С: ' . $exception->getMessage();
+            $this->transport->sendSystem($runtimeSessionId, $message);
+            return $this->commandResult($command, $channelId, $runtimeSessionId, false, ['mode' => 'failed', 'stderr' => $exception->getMessage()]);
+        }
     }
 
     /**

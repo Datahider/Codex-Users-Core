@@ -342,6 +342,7 @@ use CodexRuntime\OptionalFeatureConfig;
 use CodexRuntime\Router\ApiClient;
 use CodexRuntime\Router\CurlHttpClient;
 use CodexRuntime\Router\RouterTransportClient;
+use CodexRuntime\Router\RouterTransportEnrollmentService;
 use CodexRuntime\Router\RouterDeliveryClient;
 use CodexRuntime\RuntimePaths;
 use CodexRuntime\TransportMessageIngress;
@@ -366,6 +367,7 @@ $api = new ApiClient(
 );
 $retrySeconds = (int) $config->get('router', 'retry_unavailable_after_seconds', 15);
 $transport = new RouterTransportClient($api, $logger, $retrySeconds);
+$transportEnrollment = new RouterTransportEnrollmentService($api);
 $ingress = new TransportMessageIngress(new EventRepository($config));
 $sessions = new CodexSessionCatalog();
 $shutdown = new WorkerShutdownFlag($config, 'background', 'control_watcher_shutdown_flag_file', $paths->workerShutdownFlagFile('control_watcher'));
@@ -388,7 +390,7 @@ if ($missingVoice !== []) {
     );
     $voiceCommands = new VoiceCommandService($preference, $synthesizer, $voiceSender, $paths->voiceSamplesDir());
 }
-$watcher = new ControlWatcher($config, $logger, $commands, $activeTurn, $stateStore, $transport, $ingress, $sessions, $shutdown, $limitMonitor, $voiceCommands);
+$watcher = new ControlWatcher($config, $logger, $commands, $activeTurn, $stateStore, $transport, $ingress, $sessions, $shutdown, $limitMonitor, $voiceCommands, null, null, null, null, $transportEnrollment);
 $watcher->run();
 PHP,
             'exec_watcher' => <<<'PHP'
