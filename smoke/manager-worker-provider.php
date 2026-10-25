@@ -147,7 +147,7 @@ PHP));
         'codex' => $codex_section,
         'claude' => $claude_section,
     ]);
-    $claude_meta = ['ingress_meta' => ['provider' => 'claude']];
+    $claude_meta = ['provider' => 'claude'];
     @unlink($codex_record);
     @unlink($claude_record);
 
@@ -170,7 +170,7 @@ PHP));
     unlink($claude_record);
     $env['transport']->messages = [];
     $state_before = $env['state']->read();
-    $env['run']($meta_fresh, ['ingress_meta' => ['provider' => 'codex']]);
+    $env['run']($meta_fresh, ['provider' => 'codex']);
     assertSame(
         [['kind' => 'system', 'text' => 'Сессия уже начата с провайдером claude, сообщение требует провайдер codex.']],
         $env['transport']->messages,
@@ -184,7 +184,7 @@ PHP));
     foreach (['gemini', '', 42] as $bad_provider) {
         $env['transport']->messages = [];
         $meta_bad = 'tg-1-meta-bad';
-        $env['run']($meta_bad, ['ingress_meta' => ['provider' => $bad_provider]]);
+        $env['run']($meta_bad, ['provider' => $bad_provider]);
         assertSame(
             [['kind' => 'system', 'text' => 'Неизвестный провайдер в метаданных сообщения: ' . json_encode($bad_provider) . '.']],
             $env['transport']->messages,

@@ -34,6 +34,11 @@ try {
 
     $first?->release();
     $second?->release();
+
+    $events->enqueue(['id' => 'meta-only', 'type' => 'user_message', 'text' => 'No root session', 'meta' => ['session_id' => 'legacy-session']]);
+    $meta_only = $first_dispatcher->claimNext();
+    assertSame('', $meta_only?->session_id, 'meta session id is not a fallback');
+    $meta_only?->release();
     fwrite(STDOUT, "Manager queue dispatcher smoke: OK\n");
 } finally {
     removeTree($tmp_root);

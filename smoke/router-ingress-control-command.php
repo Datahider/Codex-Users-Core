@@ -59,9 +59,9 @@ PHP);
                 'priority' => 50,
                 'session_id' => 'cli_main:session-42',
                 'text' => '/stop',
-                'meta' => [
-                    'source' => 'router',
-                ],
+                'kind' => 'message',
+                'attachments' => [],
+                'meta' => ['chat_type' => 'private'],
             ];
         }
     };
@@ -88,6 +88,7 @@ PHP);
     assertSame('/stop', $command['text'] ?? null, 'text');
     assertSame('cli_main:session-42', $command['session_id'] ?? null, 'session');
     assertSame('cli_main:session-42', $command['channel_id'] ?? null, 'channel');
+    assertSame(['chat_type' => 'private'], $command['meta'] ?? null, 'meta');
 
     fwrite(STDOUT, "Router ingress control command smoke: OK\n");
     exit(0);

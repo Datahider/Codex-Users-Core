@@ -70,18 +70,14 @@ PHP);
                 'priority' => 50,
                 'session_id' => 'cli_main:session-42',
                 'text' => '',
-                'meta' => [
-                    'source' => 'router',
-                    'attachments' => [
-                        [
-                            'url' => 'https://files.ioannidis.ru/GPVn',
-                            'type' => 'document',
-                            'name' => 'files-verify-kccq.txt',
-                            'size_bytes' => 37,
-                        ],
-                    ],
-                    'ingress_meta' => ['source' => 'smoke'],
-                ],
+                'kind' => 'message',
+                'attachments' => [[
+                    'url' => 'https://files.ioannidis.ru/GPVn',
+                    'type' => 'document',
+                    'name' => 'files-verify-kccq.txt',
+                    'size_bytes' => 37,
+                ]],
+                'meta' => ['source' => 'smoke'],
             ];
         }
     };
@@ -96,7 +92,7 @@ PHP);
 
     $event = $events->loadEvent($queuedPath);
     assertSame('', $event['text'] ?? null, 'event text');
-    assertSame('https://files.ioannidis.ru/GPVn', $event['meta']['attachments'][0]['url'] ?? null, 'attachment url');
+    assertSame('https://files.ioannidis.ru/GPVn', $event['attachments'][0]['url'] ?? null, 'attachment url');
 
     fwrite(STDOUT, "Router ingress attachments-only smoke: OK\n");
     exit(0);

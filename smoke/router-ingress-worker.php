@@ -78,11 +78,9 @@ PHP);
                 'priority' => 50,
                 'session_id' => 'cli_main:session-42',
                 'text' => 'router ping',
-                'meta' => [
-                    'source' => 'router',
-                    'attachments' => [],
-                    'ingress_meta' => ['source' => 'smoke'],
-                ],
+                'kind' => 'message',
+                'attachments' => [],
+                'meta' => ['source' => 'smoke'],
             ];
         }
     };
@@ -103,7 +101,7 @@ PHP);
     assertSame('user_message', $event['type'] ?? null, 'event type');
     assertSame('cli_main:session-42', $event['session_id'] ?? null, 'runtime session id');
     assertSame('router ping', $event['text'] ?? null, 'event text');
-    assertSame('router', $event['meta']['source'] ?? null, 'event source');
+    assertSame(['source' => 'smoke'], $event['meta'] ?? null, 'event meta');
 
     $state = $stateStore->read();
     assertSame(501, $state['router_after_id'] ?? null, 'router after id');

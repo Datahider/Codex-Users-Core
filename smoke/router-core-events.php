@@ -36,8 +36,11 @@ try {
     assertSame('user_message', $event['type'] ?? null, 'mapped type');
     assertSame('runtime-42', $event['session_id'] ?? null, 'runtime session id');
     assertSame('router ping', $event['text'] ?? null, 'text');
-    assertSame('source-alpha', $event['meta']['source_instance_id'] ?? null, 'source instance');
-    assertSame('smoke', $event['meta']['ingress_meta']['source'] ?? null, 'ingress meta');
+    assertSame('message', $event['kind'] ?? null, 'kind');
+    assertSame([], $event['attachments'] ?? null, 'attachments');
+    assertSame(['source' => 'smoke'], $event['meta'] ?? null, 'meta');
+    assertSame(false, array_key_exists('source_instance_id', $event), 'source instance omitted');
+    assertSame(false, array_key_exists('router_kind', $event), 'router kind omitted');
 
     fwrite(STDOUT, "Router core events smoke: OK\n");
     exit(0);

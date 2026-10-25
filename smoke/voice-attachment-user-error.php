@@ -126,11 +126,12 @@ try {
             'type' => 'user_message',
             'session_id' => 'runtime-voice',
             'text' => '',
-            'meta' => ['attachments' => [[
+            'attachments' => [[
                 'type' => 'voice',
                 'url' => 'https://files.ioannidis.ru/Voice1',
                 'name' => 'voice.ogg',
-            ]]],
+            ]],
+            'meta' => [],
         ]);
         throw new RuntimeException('Voice processing error was not propagated');
     } catch (ReflectionException $error) {
