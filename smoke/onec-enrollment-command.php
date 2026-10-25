@@ -62,7 +62,7 @@ try {
         'text' => $text,
         'channel_id' => 'session-1',
         'session_id' => 'session-1',
-        'meta' => ['chat_type' => $chat_type],
+        'meta' => ['source' => 'router', 'router_meta' => ['chat_type' => $chat_type]],
     ]);
 
     $result = $run('/1c', 'private');
