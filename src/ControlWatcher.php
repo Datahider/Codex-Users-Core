@@ -354,7 +354,7 @@ final class ControlWatcher
             if ($this->transport_enrollment === null) {
                 throw new RuntimeException('сервис подключения транспорта не настроен');
             }
-            $enrollment = $this->transport_enrollment->createOnecCode();
+            $enrollment = $this->transport_enrollment->createCode();
             $expires_at = (new DateTimeImmutable($enrollment['expires_at']))
                 ->setTimezone(new \DateTimeZone('Europe/Moscow'))
                 ->format('H:i:s d.m.Y');

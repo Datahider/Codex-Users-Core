@@ -51,10 +51,10 @@ final class ApiClient
     }
 
     /**
-     * @param array<string, mixed> $payload
+     * @param array<string, mixed>|object $payload
      * @return array<string, mixed>
      */
-    public function postJson(string $path, array $payload): array
+    public function postJson(string $path, array|object $payload): array
     {
         $body = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         if ($body === false) {

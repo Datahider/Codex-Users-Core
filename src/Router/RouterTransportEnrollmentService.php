@@ -12,11 +12,9 @@ final class RouterTransportEnrollmentService implements TransportEnrollmentServi
     {
     }
 
-    public function createOnecCode(): array
+    public function createCode(): array
     {
-        $response = $this->api->postJson('/api/v1/core/transport-enrollment-code', [
-            'transport_type' => 'onec',
-        ]);
+        $response = $this->api->postJson('/api/v1/core/transport-enrollment-code', (object) []);
         $enrollment_code = $response['enrollment_code'] ?? null;
         $expires_at = $response['expires_at'] ?? null;
         if (($response['accepted'] ?? null) !== true || !is_string($enrollment_code) || !is_string($expires_at)) {
