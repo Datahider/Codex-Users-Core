@@ -79,8 +79,8 @@ Source of truth для таких skills находится внутри дер�
 Авторизация выполняется отдельно для каждого провайдера и только в private chat:
 
 - для Router ingress тип чата читается только из канонического
-  `command.meta.router_meta.chat_type`, куда `CoreEventSource` помещает
-  transport metadata;
+  `command.meta.ingress_meta.chat_type`, куда `CoreEventSource` без изменения
+  помещает `meta` входящего события, созданные transport gateway;
 
 - `/login` сначала проверяет наличие `codex.bin` и `claude.bin` в `PATH`, затем показывает статус обоих провайдеров и команды авторизации;
 - `/login codex` сначала проверяет `codex.bin` в `PATH`, затем выполняет `codex login status`; для неавторизованного Codex запускается `codex login --device-auth` без runtime session variables;
@@ -99,7 +99,7 @@ Source of truth для таких skills находится внутри дер�
 
 - `/1c` работает только в private chat и не принимает аргументов.
 - Для Router ingress private chat определяется по
-  `command.meta.router_meta.chat_type=private`.
+  `command.meta.ingress_meta.chat_type=private`.
 - Core вызывает `POST /api/v1/core/transport-enrollment-code` с
   `transport_type=onec` и возвращает пользователю одноразовый код и время его
   действия.
