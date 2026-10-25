@@ -79,8 +79,8 @@ Source of truth для таких skills находится внутри дер�
 Авторизация выполняется отдельно для каждого провайдера и только в private chat:
 
 - для Router ingress тип чата читается только из канонического
-  `command.meta.ingress_meta.chat_type`, куда `CoreEventSource` без изменения
-  помещает `meta` входящего события, созданные transport gateway;
+  `command.meta.chat_type`, куда `CoreEventSource` без изменения помещает
+  `meta` входящего события, созданные transport gateway;
 
 - `/login` сначала проверяет наличие `codex.bin` и `claude.bin` в `PATH`, затем показывает статус обоих провайдеров и команды авторизации;
 - `/login codex` сначала проверяет `codex.bin` в `PATH`, затем выполняет `codex login status`; для неавторизованного Codex запускается `codex login --device-auth` без runtime session variables;
@@ -99,7 +99,7 @@ Source of truth для таких skills находится внутри дер�
 
 - `/1c` работает только в private chat и не принимает аргументов.
 - Для Router ingress private chat определяется по
-  `command.meta.ingress_meta.chat_type=private`.
+  `command.meta.chat_type=private`.
 - Core вызывает `POST /api/v1/core/transport-enrollment-code` с
   `transport_type=onec` и возвращает пользователю одноразовый код и время его
   действия.
@@ -415,7 +415,36 @@ Core не задаёт Codex `startup_timeout_sec` и `tool_timeout_sec`. Codex 
 
 ## Входящие вложения
 
-Если входящее событие `user_message` содержит непустой `meta.attachments`, `Core` должен скачать вложения локально и передать их в `codex` как часть пользовательского prompt.
+`CoreEventSource` преобразует событие Router во внутреннее событие Core со
+следующим корневым контрактом:
+
+```json
+{
+  "router_event_id": 501,
+  "type": "user_message",
+  "priority": 50,
+  "session_id": "...",
+  "text": "...",
+  "kind": "message",
+  "attachments": [],
+  "meta": {}
+}
+```
+
+- `router_event_id` содержит исходный `event_id` Router;
+- `session_id` содержит исходный `runtime_session_id` Router;
+- `kind`, `attachments` и `meta` переносятся из события Router без изменения
+  структуры;
+- `meta` не содержит служебные поля Core, вложенные `router_meta` или
+  `ingress_meta`;
+- `source`, `source_instance_id` и `router_kind` во внутреннем событии
+  отсутствуют;
+- `session_id`, `kind` и `attachments` читаются только из корня события, без
+  fallback на `meta`.
+
+Если входящее событие `user_message` содержит непустой корневой
+`attachments`, `Core` должен скачать вложения локально и передать их в `codex`
+как часть пользовательского prompt.
 
 Формат такой:
 
@@ -435,8 +464,8 @@ Core скачивает его до запуска `codex` через `https://f
 Локальная копия не удаляется после turn и остаётся доступной последующим сообщениям того же диалога.
 Невалидный URL или ошибка скачивания явно завершают обработку события ошибкой; fallback на исходный URL запрещён.
 
-Если `meta.attachments` пустой, prompt должен остаться обычным пользовательским текстом без служебного блока.
-Если `meta.attachments` непустой, входящее событие считается валидным даже при пустом `text`.
+Если `attachments` пустой, prompt должен остаться обычным пользовательским текстом без служебного блока.
+Если `attachments` непустой, входящее событие считается валидным даже при пустом `text`.
 
 ## Транскрибация аудио
 
