@@ -343,7 +343,7 @@ final class ControlWatcher
             return $this->commandResult($command, $channelId, $runtimeSessionId, false, ['mode' => 'invalid_arguments', 'stderr' => $message]);
         }
 
-        $meta = is_array($command['meta'] ?? null) ? $command['meta'] : [];
+        $meta = $this->routerTransportMeta($command);
         if (($meta['chat_type'] ?? null) !== 'private') {
             $message = 'Команда /1c работает только в личном чате.';
             $this->transport->sendSystem($runtimeSessionId, $message);
@@ -371,13 +371,24 @@ final class ControlWatcher
         }
     }
 
+    /** @param array<string, mixed> $command @return array<string, mixed> */
+    private function routerTransportMeta(array $command): array
+    {
+        $meta = $command['meta'] ?? null;
+        if (!is_array($meta) || ($meta['source'] ?? null) !== 'router' || !is_array($meta['router_meta'] ?? null)) {
+            return [];
+        }
+
+        return $meta['router_meta'];
+    }
+
     /**
      * @param array<string, mixed> $command
      * @return array<string, mixed>
      */
     private function processLoginCommand(array $command, int|string $channelId, string $runtimeSessionId, string $text): array
     {
-        $meta = is_array($command['meta'] ?? null) ? $command['meta'] : [];
+        $meta = $this->routerTransportMeta($command);
         if (($meta['chat_type'] ?? null) !== 'private') {
             $message = 'Команда /login работает только в личном чате.';
             $this->transport->sendSystem($runtimeSessionId, $message);
