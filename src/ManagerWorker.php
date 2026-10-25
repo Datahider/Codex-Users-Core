@@ -154,7 +154,7 @@ final class ManagerWorker
 
     private function processUserMessage(array $event): array
     {
-        $runtimeSessionId = trim((string) ($event['session_id'] ?? $event['meta']['session_id'] ?? ''));
+        $runtimeSessionId = trim((string) ($event['session_id'] ?? ''));
         if ($runtimeSessionId === '') {
             return [
                 'ok' => false,
@@ -165,7 +165,7 @@ final class ManagerWorker
             ];
         }
 
-        $attachments = is_array($event['meta']['attachments'] ?? null) ? $event['meta']['attachments'] : [];
+        $attachments = is_array($event['attachments'] ?? null) ? $event['attachments'] : [];
         try {
             $processed = $this->voice_attachments->process((string) ($event['text'] ?? ''), $attachments);
         } catch (Throwable $error) {
@@ -242,7 +242,7 @@ final class ManagerWorker
             throw new RuntimeException('Empty text for scheduled_prompt');
         }
 
-        $runtimeSessionId = trim((string) ($event['session_id'] ?? $event['meta']['session_id'] ?? ''));
+        $runtimeSessionId = trim((string) ($event['session_id'] ?? ''));
         if ($runtimeSessionId === '') {
             throw new RuntimeException('Missing session_id for scheduled_prompt');
         }
@@ -480,19 +480,19 @@ TEXT;
     }
 
     /**
-     * Провайдер из meta.router_meta.provider задаёт провайдер неначатой сессии так же, как /provider.
+     * Провайдер из meta.provider задаёт провайдер неначатой сессии так же, как /provider.
      *
      * @param array<string, mixed> $event
      */
     private function applyMessageProvider(string $runtimeSessionId, array $event): void
     {
-        $router_meta = is_array($event['meta']['router_meta'] ?? null) ? $event['meta']['router_meta'] : [];
-        if (!array_key_exists('provider', $router_meta)) {
+        $meta = is_array($event['meta'] ?? null) ? $event['meta'] : [];
+        if (!array_key_exists('provider', $meta)) {
             return;
         }
 
         $availability = new ProviderAvailability($this->config);
-        $requested = $router_meta['provider'];
+        $requested = $meta['provider'];
         if (!is_string($requested) || !$availability->isKnown($requested)) {
             $message = 'Неизвестный провайдер в метаданных сообщения: ' . json_encode($requested, JSON_UNESCAPED_UNICODE) . '.';
             $this->transport->sendSystem($runtimeSessionId, $message);

@@ -76,9 +76,9 @@ final class RouterIngressWorker
             throw new RuntimeException('Router event is missing runtime session id');
         }
 
-        $routerKind = (string) ($event['meta']['router_kind'] ?? '');
-        if ($routerKind === 'tool') {
-            $meta = is_array($event['meta']['router_meta'] ?? null) ? $event['meta']['router_meta'] : [];
+        $kind = (string) ($event['kind'] ?? '');
+        if ($kind === 'tool') {
+            $meta = is_array($event['meta'] ?? null) ? $event['meta'] : [];
             if ($this->transport_tools === null) {
                 $this->logger->error('Discarded transport tool response without IPC store', ['runtime_session_id' => $runtimeSessionId]);
             } else {
@@ -89,13 +89,12 @@ final class RouterIngressWorker
             return true;
         }
 
-        $attachments = is_array($event['meta']['attachments'] ?? null) ? $event['meta']['attachments'] : [];
+        $attachments = is_array($event['attachments'] ?? null) ? $event['attachments'] : [];
         $text = trim((string) ($event['text'] ?? ''));
         if ($text === '' && $attachments === []) {
             throw new RuntimeException('Router event is missing text payload');
         }
 
-        $event['priority'] = max(50, (int) ($event['priority'] ?? 50));
         $event['session_id'] = $runtimeSessionId;
         $event['text'] = $text;
 

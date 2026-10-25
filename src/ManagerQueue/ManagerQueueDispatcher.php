@@ -54,6 +54,6 @@ final class ManagerQueueDispatcher
 
     private function sessionId(array $event): string
     {
-        return trim((string) ($event['session_id'] ?? $event['meta']['session_id'] ?? ''));
+        return trim((string) ($event['session_id'] ?? ''));
     }
 }

@@ -47,13 +47,9 @@ final class CoreEventSource implements CoreEventSourceInterface
             'priority' => 50,
             'session_id' => $runtimeSessionId,
             'text' => trim((string) ($event['text'] ?? '')),
-            'meta' => [
-                'source' => 'router',
-                'source_instance_id' => (string) ($event['transport_instance_id'] ?? ''),
-                'router_kind' => (string) ($event['kind'] ?? ''),
-                'attachments' => is_array($event['attachments'] ?? null) ? $event['attachments'] : [],
-                'router_meta' => is_array($event['meta'] ?? null) ? $event['meta'] : [],
-            ],
+            'kind' => (string) ($event['kind'] ?? ''),
+            'attachments' => is_array($event['attachments'] ?? null) ? $event['attachments'] : [],
+            'meta' => is_array($event['meta'] ?? null) ? $event['meta'] : [],
         ];
     }
 }
