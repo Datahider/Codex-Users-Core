@@ -39,7 +39,7 @@ try {
     };
     $enrollment = new class implements TransportEnrollmentServiceInterface {
         public int $calls = 0;
-        public function createOnecCode(): array
+        public function createCode(): array
         {
             $this->calls++;
             return ['enrollment_code' => '7KQW-9MTR-X5NP-3YZA', 'expires_at' => '2030-01-01T13:00:00+00:00'];

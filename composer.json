@@ -42,6 +42,7 @@
             "php smoke/provider-command.php",
             "php smoke/codex-device-auth.php",
             "php smoke/claude-subscription-auth.php",
+            "php smoke/transport-enrollment-service.php",
             "php smoke/login-command.php",
             "php smoke/onec-enrollment-command.php",
             "php smoke/claude-process.php",
