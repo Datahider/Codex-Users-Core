@@ -44,7 +44,7 @@ $source = new class($request_id) implements CoreEventSourceInterface {
             'meta' => [
                 'router_kind' => 'tool',
                 'attachments' => [],
-                'router_meta' => ['type' => 'list', 'request_id' => $this->request_id, 'tools' => []],
+                'ingress_meta' => ['type' => 'list', 'request_id' => $this->request_id, 'tools' => []],
             ],
         ];
     }

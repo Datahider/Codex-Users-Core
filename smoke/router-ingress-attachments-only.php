@@ -80,7 +80,7 @@ PHP);
                             'size_bytes' => 37,
                         ],
                     ],
-                    'router_meta' => ['source' => 'smoke'],
+                    'ingress_meta' => ['source' => 'smoke'],
                 ],
             ];
         }

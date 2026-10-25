@@ -81,7 +81,7 @@ PHP);
                 'meta' => [
                     'source' => 'router',
                     'attachments' => [],
-                    'router_meta' => ['source' => 'smoke'],
+                    'ingress_meta' => ['source' => 'smoke'],
                 ],
             ];
         }

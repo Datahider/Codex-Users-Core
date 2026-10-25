@@ -37,7 +37,7 @@ try {
     assertSame('runtime-42', $event['session_id'] ?? null, 'runtime session id');
     assertSame('router ping', $event['text'] ?? null, 'text');
     assertSame('source-alpha', $event['meta']['source_instance_id'] ?? null, 'source instance');
-    assertSame('smoke', $event['meta']['router_meta']['source'] ?? null, 'router meta');
+    assertSame('smoke', $event['meta']['ingress_meta']['source'] ?? null, 'ingress meta');
 
     fwrite(STDOUT, "Router core events smoke: OK\n");
     exit(0);

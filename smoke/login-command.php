@@ -169,7 +169,7 @@ function makeWatcher(
     $method = new ReflectionMethod(ControlWatcher::class, 'processTransportCommand');
     $run = static fn(string $text, array $meta): array => $method->invoke($watcher, [
         'type' => 'transport_command', 'text' => $text, 'channel_id' => 'session-1', 'session_id' => 'session-1',
-        'meta' => ['source' => 'router', 'router_meta' => $meta],
+        'meta' => ['source' => 'router', 'ingress_meta' => $meta],
     ]);
     return [$run, $transport];
 }
