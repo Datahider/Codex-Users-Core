@@ -100,9 +100,8 @@ Source of truth для таких skills находится внутри дер�
 - `/1c` работает только в private chat и не принимает аргументов.
 - Для Router ingress private chat определяется по
   `command.meta.chat_type=private`.
-- Core вызывает `POST /api/v1/core/transport-enrollment-code` с
-  `transport_type=onec` и возвращает пользователю одноразовый код и время его
-  действия.
+- Core вызывает `POST /api/v1/core/transport-enrollment-code` с пустым JSON
+  object и возвращает пользователю одноразовый код и время его действия.
 - Код предназначен для ввода в настройках расширения «Гоша ИИ». Он не является
   transport token и не хранится в Core.
 - Ошибка Router сообщается пользователю явно; команда не передаётся агенту.
