@@ -9,6 +9,7 @@ use CodexRuntime\Config;
 use CodexRuntime\Document\DocumentSender;
 use CodexRuntime\Document\FileExchangeApiClient;
 use CodexRuntime\Mcp\StdioServer;
+use CodexRuntime\Mcp\CoreEnvironmentTool;
 use CodexRuntime\Mcp\TransportToolService;
 use CodexRuntime\Mcp\TransportToolStore;
 use CodexRuntime\Mcp\UnavailableFileTool;
@@ -19,6 +20,7 @@ use CodexRuntime\Router\CurlHttpClient;
 use CodexRuntime\Router\RouterDeliveryClient;
 use CodexRuntime\RuntimePaths;
 use CodexRuntime\Logger;
+use CodexRuntime\JsonFileStore;
 use CodexRuntime\Voice\ResponseDeliveryTool;
 use CodexRuntime\Voice\VoiceResponseModeStore;
 
@@ -51,15 +53,22 @@ $response_delivery = new ResponseDeliveryTool(
     new VoiceResponseModeStore($paths->voiceResponseModesFile()),
     $runtime_session_id
 );
+$core_environment = new CoreEnvironmentTool(
+    $config,
+    $paths,
+    new JsonFileStore($paths->managerStateFile()),
+    $runtime_session_id,
+    dirname(__DIR__)
+);
 $transport_tools = new TransportToolService(
     new TransportToolStore($paths->transportToolsDir(), $logger),
     $delivery,
     $logger,
     $runtime_session_id,
-    ['send_document', 'send_image', 'set_response_delivery'],
+    ['get_core_environment', 'send_document', 'send_image', 'set_response_delivery'],
     (float) $config->get('transport_tools', 'cache_ttl_seconds', 600),
     (float) $config->get('transport_tools', 'list_timeout_seconds', 5),
     (float) $config->get('transport_tools', 'call_timeout_seconds', 50)
 );
 
-(new StdioServer($document_sender, $image_sender, $response_delivery, $transport_tools))->run(STDIN, STDOUT);
+(new StdioServer($document_sender, $image_sender, $response_delivery, $core_environment, $transport_tools))->run(STDIN, STDOUT);

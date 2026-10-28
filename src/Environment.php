@@ -23,7 +23,7 @@ final class Environment
         return null;
     }
 
-    public static function resolveCommand(string $command): ?string
+    public static function resolveCommand(string $command, ?string $path_override = null): ?string
     {
         $command = trim($command);
         if ($command === '') {
@@ -34,7 +34,7 @@ final class Environment
             return is_executable($command) ? $command : null;
         }
 
-        $path = getenv('PATH');
+        $path = $path_override ?? getenv('PATH');
         if (!is_string($path) || trim($path) === '') {
             return null;
         }

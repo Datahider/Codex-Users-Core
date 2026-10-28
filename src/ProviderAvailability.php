@@ -11,7 +11,7 @@ final class ProviderAvailability
     public const CODEX = 'codex';
     public const CLAUDE = 'claude';
 
-    public function __construct(private Config $config)
+    public function __construct(private Config $config, private ?string $command_path = null)
     {
     }
 
@@ -64,7 +64,7 @@ final class ProviderAvailability
         $this->requireKnown($provider);
 
         $bin = $this->bin($provider);
-        if (Environment::resolveCommand($bin) === null) {
+        if (Environment::resolveCommand($bin, $this->command_path) === null) {
             return "{$bin} не найден в PATH";
         }
 

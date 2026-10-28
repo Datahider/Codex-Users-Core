@@ -11,6 +11,7 @@ use CodexRuntime\Mcp\ResponseDeliveryToolInterface;
 use CodexRuntime\Mcp\StdioServer;
 use CodexRuntime\Mcp\DocumentToolInterface;
 use CodexRuntime\Mcp\ImageToolInterface;
+use CodexRuntime\Mcp\CoreEnvironmentToolInterface;
 
 require_once __DIR__ . '/../src/bootstrap.php';
 
@@ -149,7 +150,13 @@ try {
             throw new RuntimeException('Unexpected image tool call');
         }
     };
-    $server = new StdioServer($document_tool, $image_tool, $response_delivery_tool);
+    $core_environment_tool = new class implements CoreEnvironmentToolInterface {
+        public function describe(): array
+        {
+            return ['description' => 'test environment'];
+        }
+    };
+    $server = new StdioServer($document_tool, $image_tool, $response_delivery_tool, $core_environment_tool);
     $input = fopen('php://temp', 'r+');
     $output = fopen('php://temp', 'r+');
     if ($input === false || $output === false) {

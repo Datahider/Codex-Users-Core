@@ -70,24 +70,24 @@ $sender = new class($store) implements ToolEventSenderInterface {
     }
 };
 
-$local_names = ['send_document', 'send_image', 'set_response_delivery'];
-$service_a = new TransportToolService($store, $sender, $logger, 'session-a', $local_names, 600, 0.1, 0.1);
+$local_names = ['get_core_environment', 'send_document', 'send_image', 'set_response_delivery'];
+$service_a = new TransportToolService($store, $sender, $logger, 'session-a', $local_names, 600, 1.0, 1.0);
 $tools_a = $service_a->warmup();
 assertSame('remote_a', $tools_a[0]['name'] ?? null, 'session A list');
 assertSame(['readOnlyHint' => true], $tools_a[0]['annotations'] ?? null, 'opaque standard tool fields');
 
-$service_b = new TransportToolService($store, $sender, $logger, 'session-b', $local_names, 600, 0.1, 0.1);
+$service_b = new TransportToolService($store, $sender, $logger, 'session-b', $local_names, 600, 1.0, 1.0);
 assertSame('remote_b', $service_b->warmup()[0]['name'] ?? null, 'session B list');
 
 $events_after_first_list = count($sender->events);
-$service_a_cached = new TransportToolService($store, $sender, $logger, 'session-a', $local_names, 600, 0.1, 0.1);
+$service_a_cached = new TransportToolService($store, $sender, $logger, 'session-a', $local_names, 600, 1.0, 1.0);
 assertSame($tools_a, $service_a_cached->warmup(), 'cached list');
 assertSame($events_after_first_list, count($sender->events), 'cache suppresses outbound list');
 
-$empty = new TransportToolService($store, $sender, $logger, 'session-empty', $local_names, 600, 0.1, 0.1);
+$empty = new TransportToolService($store, $sender, $logger, 'session-empty', $local_names, 600, 1.0, 1.0);
 assertSame([], $empty->warmup(), 'empty list');
 $empty_event_count = count($sender->events);
-assertSame([], (new TransportToolService($store, $sender, $logger, 'session-empty', $local_names, 600, 0.1, 0.1))->warmup(), 'cached empty list');
+assertSame([], (new TransportToolService($store, $sender, $logger, 'session-empty', $local_names, 600, 1.0, 1.0))->warmup(), 'cached empty list');
 assertSame($empty_event_count, count($sender->events), 'empty list cache suppresses outbound');
 
 $result = $service_a->call('remote_a', ['value' => 42]);
@@ -97,7 +97,7 @@ assertSame(42, $result['structuredContent']['argument'] ?? null, 'full result');
 $sender->lists['session-error'] = [[
     'name' => 'remote_error', 'description' => 'E', 'inputSchema' => ['type' => 'object'],
 ]];
-$error_service = new TransportToolService($store, $sender, $logger, 'session-error', $local_names, 600, 0.1, 0.1);
+$error_service = new TransportToolService($store, $sender, $logger, 'session-error', $local_names, 600, 1.0, 1.0);
 $error_service->warmup();
 $error_result = $error_service->call('remote_error', []);
 assertSame(true, $error_result['isError'] ?? null, 'transport error is tool result');
@@ -111,7 +111,7 @@ $before_unknown = count($sender->events);
 assertThrows(fn () => $service_a->call('unknown', []), 'Unknown MCP tool', 'unknown tool');
 assertSame($before_unknown, count($sender->events), 'unknown tool stays local');
 
-$call_timeout = new TransportToolService($store, $sender, $logger, 'session-call-timeout', $local_names, 600, 0.1, 0.03);
+$call_timeout = new TransportToolService($store, $sender, $logger, 'session-call-timeout', $local_names, 600, 1.0, 0.03);
 $call_timeout->warmup();
 $started = microtime(true);
 $timeout_result = $call_timeout->call('remote_wait', []);
@@ -133,23 +133,23 @@ $timeout_event_count = count($sender->events);
 assertSame($timeout_event_count + 1, count($sender->events), 'timeout not cached');
 
 $sender->lists['session-invalid'] = [['name' => 'broken']];
-$invalid = new TransportToolService($store, $sender, $logger, 'session-invalid', $local_names, 600, 0.1, 0.1);
+$invalid = new TransportToolService($store, $sender, $logger, 'session-invalid', $local_names, 600, 1.0, 1.0);
 assertSame([], $invalid->warmup(), 'invalid list rejected');
 $invalid_count = count($sender->events);
-(new TransportToolService($store, $sender, $logger, 'session-invalid', $local_names, 600, 0.1, 0.1))->warmup();
+(new TransportToolService($store, $sender, $logger, 'session-invalid', $local_names, 600, 1.0, 1.0))->warmup();
 assertSame($invalid_count + 1, count($sender->events), 'invalid list not cached');
 
 $sender->lists['session-collision'] = [[
     'name' => 'send_document', 'description' => 'collision', 'inputSchema' => ['type' => 'object'],
 ]];
-$collision = new TransportToolService($store, $sender, $logger, 'session-collision', $local_names, 600, 0.1, 0.1);
+$collision = new TransportToolService($store, $sender, $logger, 'session-collision', $local_names, 600, 1.0, 1.0);
 assertSame([], $collision->warmup(), 'collision rejects whole list');
 
-$expired = new TransportToolService($store, $sender, $logger, 'session-expired', $local_names, 0, 0.1, 0.1);
+$expired = new TransportToolService($store, $sender, $logger, 'session-expired', $local_names, 0, 1.0, 1.0);
 $sender->lists['session-expired'] = [];
 $expired->warmup();
 $expired_count = count($sender->events);
-(new TransportToolService($store, $sender, $logger, 'session-expired', $local_names, 0, 0.1, 0.1))->warmup();
+(new TransportToolService($store, $sender, $logger, 'session-expired', $local_names, 0, 1.0, 1.0))->warmup();
 assertSame($expired_count + 1, count($sender->events), 'expired cache refreshes');
 
 $request_a = $store->register('parallel-session', 'call', 1.0);
@@ -188,7 +188,7 @@ for ($i = 0; $i < 2; $i++) {
                 ]);
             }
         };
-        (new TransportToolService($child_store, $child_sender, $logger, 'single-flight', $local_names, 600, 0.2, 0.2))->warmup();
+        (new TransportToolService($child_store, $child_sender, $logger, 'single-flight', $local_names, 600, 1.0, 1.0))->warmup();
         exit(0);
     }
     $children[] = $pid;
